@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.dodedodo"
+    android:versionCode="1"
+    android:versionName="1.0"
+    android:sharedUserId="dode.dodo"
+    
+    >
+
+    <uses-sdk
+        android:minSdkVersion="8"
+        android:targetSdkVersion="17" />
+
+    <permission android:name=".XMPPServicePerm" />
+    
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- should be optional(!) because it is in the same namespace -->
+ <!--    <uses-permission android:name=".XMPPServicePerm"/>
+     -->
+<!--     <uses-permission android:name="XMPPServicePermsdf" />
+    <uses-feature android:name="XMPPServicePermsdf"
+        android:required="true" />
+ -->
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--         android:permission=".XMPPServicePerm"        
+         -->
+         
+        <service
+            android:enabled="true"
+            android:name=".XMPPService"
+            android:exported="true"
+        
+            />
+        
+        <service
+            android:enabled="true"
+            android:name=".MsgService"
+            android:exported="true"
+        
+            />
+
+        <activity
+            android:name="com.example.dodedodo.LoginActivity"
+            android:label="@string/title_activity_login"
+            android:windowSoftInputMode="adjustResize|stateVisible" >
+            
+        </activity>
+        
+     </application>
+    
+</manifest>
