@@ -126,10 +126,14 @@ class InstalledModulePort implements Serializable {
 class InstalledModule implements Serializable {
 	private static final long serialVersionUID = 1L;
 	public String name; // Handy but double info
+	public String packageName;
+	public String installUrl;
 	public ArrayList<InstalledModulePort> portsIn = new ArrayList<InstalledModulePort>();
 	public ArrayList<InstalledModulePort> portsOut = new ArrayList<InstalledModulePort>();
 	public String toString() {
 		String str = new String(name);
+		str += " " + packageName;
+		str += " " + installUrl;
 		str += " IN:";
 		for (InstalledModulePort p : portsIn)
 			str += ", " + p.toString();
@@ -182,6 +186,38 @@ public class MsgService extends Service {
 	public static final int DATATYPE_IMAGE = 4;
 	public static final int DATATYPE_BINARY = 5;
 	
+	public int GetDataType(String s) {
+		int res = 0;
+		if (s.equals("float"))
+			res = DATATYPE_FLOAT;
+		else if (s.equals("floatarray"))
+			res = DATATYPE_FLOAT_ARRAY;
+		else if (s.equals("string"))
+			res = DATATYPE_STRING;
+		else if (s.equals("image"))
+			res = DATATYPE_IMAGE;
+		else if (s.equals("binary"))
+			res = DATATYPE_BINARY;
+		return res;
+	}
+	
+	public String GetDataType(int t) {
+		String res = null;
+		switch (t) {
+		case DATATYPE_FLOAT:
+			res = new String("float"); break;
+		case DATATYPE_FLOAT_ARRAY:
+			res = new String("floatarray"); break;
+		case DATATYPE_STRING:
+			res = new String("string"); break;
+		case DATATYPE_IMAGE:
+			res = new String("image"); break;
+		case DATATYPE_BINARY:
+			res = new String("binary"); break;
+		}
+		return res;
+	}
+	
 	@Override
 	public IBinder onBind(final Intent intent) {
 //		return new LocalBinder<XMPPService>(this);
@@ -193,8 +229,8 @@ public class MsgService extends Service {
 	public void onCreate() {
 		super.onCreate();
 
-		loadInstalledModuleMap();
-		if (false) {
+//		loadInstalledModuleMap();
+		if (true) {
 			{
 				String name = new String("UI");
 				InstalledModule m = new InstalledModule();
@@ -205,16 +241,16 @@ public class MsgService extends Service {
 				m.portsOut.add(p);
 				mInstalledModules.put(name, m);
 			}
-			{
-				String name = new String("PictureSelectModule");
-				InstalledModule m = new InstalledModule();
-				m.name = name;
-				InstalledModulePort p = new InstalledModulePort();
-				p.name = "out";
-				p.dataType = DATATYPE_FLOAT_ARRAY;
-				m.portsOut.add(p);
-				mInstalledModules.put(name, m);
-			}
+//			{
+//				String name = new String("PictureSelectModule");
+//				InstalledModule m = new InstalledModule();
+//				m.name = name;
+//				InstalledModulePort p = new InstalledModulePort();
+//				p.name = "out";
+//				p.dataType = DATATYPE_FLOAT_ARRAY;
+//				m.portsOut.add(p);
+//				mInstalledModules.put(name, m);
+//			}
 		}
 		for (String n : mInstalledModules.keySet())
 			Log.i(TAG, "name: " + n);
@@ -497,12 +533,39 @@ public class MsgService extends Service {
 						String json = new String(msg.getData().getString("data").substring(11)); // To remove "AIM deploy "
 						try {
 							rootNode = mapper.readTree(json);
-							JsonNode androidNode = rootNode.path("android");
-							Log.i(TAG, "Deploy: " + rootNode.path("name").textValue());
-							Log.i(TAG, "package: " + androidNode.path("package").textValue());
-							Log.i(TAG, "url: " + androidNode.path("url").textValue());
+							JsonNode androidNode = rootNode.path("android"); // Use .get() instead and check result for == null
 							
+							String moduleName = rootNode.path("name").textValue();
+							String packageName = androidNode.path("package").textValue();
+							String url = androidNode.path("url").textValue();
 							
+							Log.i(TAG, "Deploy: " + moduleName);
+							Log.i(TAG, "package: " + packageName);
+							Log.i(TAG, "url: " + url);
+							
+							InstalledModule m = new InstalledModule();
+							m.name = moduleName;
+							m.packageName = packageName;
+							m.installUrl = url;
+							
+							JsonNode portsNode = rootNode.path("ports");
+							Iterator<JsonNode> portIt = portsNode.elements();
+							while (portIt.hasNext()) {
+								JsonNode portNode = portIt.next();
+								String portName = portNode.path("name").textValue();
+								String portDir = portNode.path("dir").textValue();
+								String portType = portNode.path("type").textValue();
+								Log.i(TAG, "port: " + portName + " " + portDir + " " + portType);
+								InstalledModulePort p = new InstalledModulePort();
+								p.name = portName;
+								p.dataType = GetDataType(portType);
+								if (portDir.equals("in"))
+									m.portsIn.add(p);
+								else
+									m.portsOut.add(p);
+							}
+							mInstalledModules.put(m.name, m);
+
 						} catch (JsonProcessingException e) {
 							Log.i(TAG, "JsonProcessingException: Could not read json: " + e.toString());
 						} catch (IOException e) {
@@ -680,8 +743,8 @@ public class MsgService extends Service {
 			intent.setAction(Intent.ACTION_RUN);
 			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 			intent.addCategory(Intent.CATEGORY_DEFAULT);
-			String packageName = "com.example." + key.mName.toLowerCase(Locale.US);
-			intent.setPackage(packageName);
+//			String packageName = "com.example." + key.mName.toLowerCase(Locale.US);
+			intent.setPackage(installedMod.packageName);
 			startActivity(intent);
 		}
 	}
@@ -967,6 +1030,10 @@ public class MsgService extends Service {
 	}
 	
 	void storeInstalledModuleMap() {
+		for (String n : mInstalledModules.keySet())
+			Log.i(TAG, "name: " + n);
+		for (InstalledModule m : mInstalledModules.values())
+			Log.i(TAG, "Installed module: " + m.toString());
 		try {
 			FileOutputStream fileOut = openFileOutput("installedModuleMap", Context.MODE_PRIVATE);
 			ObjectOutputStream outStream = new ObjectOutputStream(fileOut);
