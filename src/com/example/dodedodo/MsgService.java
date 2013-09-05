@@ -10,6 +10,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -28,6 +29,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
@@ -674,6 +677,8 @@ public class MsgService extends Service {
 	}
 	
 	private void msgSend(Messenger messenger, Message msg) {
+//		if (messenger == null || msg == null)
+//			return;
 		Log.i(TAG, "msgSend to: " + messenger.toString());
 		try {
 			//msg.replyTo = mMessenger;
@@ -716,9 +721,20 @@ public class MsgService extends Service {
 		}
 		
 		if (!mModules.containsKey(key)) {
+
+			Intent intent = new Intent();
+			intent.setAction(Intent.ACTION_RUN);
+			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+			intent.addCategory(Intent.CATEGORY_DEFAULT);
+//			String packageName = "com.example." + key.mName.toLowerCase(Locale.US);
+			intent.setPackage(installedMod.packageName);
+			if (!isCallable(intent)) {
+				Log.i(TAG, "Cannot start module " + key.toString() + ". No such package: " + installedMod.packageName);
+				return;
+			}
+
 			Module m = new Module();
 			m.key = key;
-
 			for (InstalledModulePort p : installedMod.portsIn) {
 				ModulePort port = new ModulePort();
 				port.name = p.name;
@@ -738,15 +754,18 @@ public class MsgService extends Service {
 				m.portsOut.put(p.name, port);
 			}
 			mModules.put(key, m);
-
-			Intent intent = new Intent();
-			intent.setAction(Intent.ACTION_RUN);
-			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-			intent.addCategory(Intent.CATEGORY_DEFAULT);
-//			String packageName = "com.example." + key.mName.toLowerCase(Locale.US);
-			intent.setPackage(installedMod.packageName);
+			
 			startActivity(intent);
+				
 		}
+	}
+	
+	private boolean isCallable(Intent intent) {
+	    List<ResolveInfo> list = getPackageManager().queryIntentActivities(intent, 
+	        PackageManager.MATCH_DEFAULT_ONLY);
+	    if (list == null)
+	    	return false;
+	    return list.size() > 0;
 	}
 	
 	private void stopModule(ModuleKey key) {
