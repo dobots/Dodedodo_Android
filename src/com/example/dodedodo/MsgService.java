@@ -16,6 +16,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 //import android.app.Notification;
@@ -151,62 +152,6 @@ public class MsgService extends Service {
 	final Messenger mFromModuleMessenger = new Messenger(new IncomingMsgHandler());
 	
 	
-//	class PortIn {
-//		public Messenger messenger = null;
-//		//public String name;
-//	}
-//	
-//	class PortOut {
-//		public Messenger messenger = null;
-//		//public String name;
-//		public String fromModuleName;
-//		public int fromModuleId = -1;
-//		public String fromPortName;
-//	}
-
-//	class ModulePort implements Serializable {
-//		private static final long serialVersionUID = 1L;
-//		public String name; // Handy, but double info
-//		transient public Messenger messenger = null;
-//		public String otherModuleName;
-//		public int otherModuleId = -1;
-//		public String otherPortName;
-//	}
-	
-/*	class ModuleKey implements Serializable {
-		transient private static final long serialVersionUID = 1L;
-		transient public String name;
-		transient public int id;
-		public boolean equals(Object obj) {
-			if (this == obj)
-				return true;
-			if (obj == null)
-				return false;
-			if (getClass() != obj.getClass())
-				return false;
-			ModuleKey k = (ModuleKey)obj;
-			if (id == k.id && name.equals(k.name))
-				return true;
-			return false;
-		}
-		public int hashCode() {
-			return (name + id).hashCode();
-		}
-		public String toString() {
-			return new String(name + "[" + id + "]");
-		}
-	}*/
-	
-//	class Module implements Serializable {
-//		private static final long serialVersionUID = 1L;
-//		public ModuleKey key; // Handy, but double info
-//		transient public Messenger messenger = null;
-//		public HashMap<String, ModulePort> portsIn = new HashMap<String, ModulePort>(); // Key is port name
-//		public HashMap<String, ModulePort> portsOut = new HashMap<String, ModulePort>(); // Key is port name
-//	}
-	
-
-
 //	/** For showing and hiding our notification. */
 //	NotificationManager mNM;
 	/** Keeps track of all current registered clients. */
@@ -353,15 +298,6 @@ public class MsgService extends Service {
 			for (Module m : mModules.values())
 				Log.i(TAG, "Module: " + m.toString());
 		}
-		
-//		try {
-//			Log.i(TAG, "mModules as json: " + mapper.writeValueAsString(mModules));
-//		} catch (JsonProcessingException e) {
-//			Log.i(TAG, "JsonProcessingException: Could not write mModules as json: " + e.toString());
-//		} catch (IOException e) {
-//			Log.i(TAG, "IOException: Could not write mModules as json: " + e.toString());
-//		}
-		
 		
 //        mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
 
@@ -547,6 +483,32 @@ public class MsgService extends Service {
 					String[] words = msg.getData().getString("data").split(" ");
 					if (words[1].equals("deploy")) {
 						
+//					ObjectMapper mapper = new ObjectMapper();						
+//					try {
+//						Log.i(TAG, "mModules as json: " + mapper.writeValueAsString(mModules));
+//					} catch (JsonProcessingException e) {
+//						Log.i(TAG, "JsonProcessingException: Could not write mModules as json: " + e.toString());
+//					} catch (IOException e) {
+//						Log.i(TAG, "IOException: Could not write mModules as json: " + e.toString());
+//					}
+					
+						ObjectMapper mapper = new ObjectMapper();
+						JsonNode rootNode;
+						String json = new String(msg.getData().getString("data").substring(11)); // To remove "AIM deploy "
+						try {
+							rootNode = mapper.readTree(json);
+							JsonNode androidNode = rootNode.path("android");
+							Log.i(TAG, "Deploy: " + rootNode.path("name").textValue());
+							Log.i(TAG, "package: " + androidNode.path("package").textValue());
+							Log.i(TAG, "url: " + androidNode.path("url").textValue());
+							
+							
+						} catch (JsonProcessingException e) {
+							Log.i(TAG, "JsonProcessingException: Could not read json: " + e.toString());
+						} catch (IOException e) {
+							Log.i(TAG, "IOException: Could not read json: " + e.toString());
+						}
+						
 					}
 					else if (words[1].equals("start")) {
 						if (words.length != 4)
@@ -641,7 +603,6 @@ public class MsgService extends Service {
 //				break;
 //			}
 			
-//			ObjectMapper mapper = new ObjectMapper();
 			
 			default:
 				super.handleMessage(msg);
