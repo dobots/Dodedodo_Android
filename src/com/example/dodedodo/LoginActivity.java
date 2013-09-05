@@ -17,6 +17,7 @@ import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
+import org.dobots.dodedodo.R;
 
 // TODO: https://udinic.wordpress.com/2013/04/24/write-your-own-android-authenticator/
 

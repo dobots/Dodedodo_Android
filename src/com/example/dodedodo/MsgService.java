@@ -775,6 +775,7 @@ public class MsgService extends Service {
 		{
 			Message messengerMsg = Message.obtain(null, MSG_STOP);
 			msgSend(m.messenger, messengerMsg);
+			mModules.remove(key);
 		}
 		else
 			Log.i(TAG, "Cannot stop module " + key + ": not in modules list.");
