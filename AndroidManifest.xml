@@ -27,7 +27,7 @@
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
         <activity
-            android:name="com.example.dodedodo.MainActivity"
+            android:name="org.dobots.dodedodo.MainActivity"
             android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -41,20 +41,20 @@
          
         <service
             android:enabled="true"
-            android:name="com.example.dodedodo.XMPPService"
+            android:name="org.dobots.dodedodo.XMPPService"
             android:exported="true"
         
             />
         
         <service
             android:enabled="true"
-            android:name="com.example.dodedodo.MsgService"
+            android:name="org.dobots.dodedodo.MsgService"
             android:exported="true"
         
             />
 
         <activity
-            android:name="com.example.dodedodo.LoginActivity"
+            android:name="org.dobots.dodedodo.LoginActivity"
             android:label="@string/title_activity_login"
             android:windowSoftInputMode="adjustResize|stateVisible" >
             

@@ -1,4 +1,4 @@
-package com.example.dodedodo;
+package org.dobots.dodedodo;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -726,7 +726,7 @@ public class MsgService extends Service {
 			intent.setAction(Intent.ACTION_RUN);
 			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 			intent.addCategory(Intent.CATEGORY_DEFAULT);
-//			String packageName = "com.example." + key.mName.toLowerCase(Locale.US);
+//			String packageName = "org.dobots." + key.mName.toLowerCase(Locale.US);
 			intent.setPackage(installedMod.packageName);
 			if (!isCallable(intent)) {
 				Log.i(TAG, "Cannot start module " + key.toString() + ". No such package: " + installedMod.packageName);
@@ -1117,8 +1117,8 @@ public class MsgService extends Service {
 		//bindService(new Intent(this, XMPPService.class), mConnection, Context.BIND_AUTO_CREATE);
 		
 //		Intent intent = new Intent();
-//		intent.setComponent(new ComponentName("com.example.dodedodo", "com.example.dodedodo.XMPPService"));
-//		intent.setClassName("com.example.dodedodo", ".XMPPService");
+//		intent.setComponent(new ComponentName("org.dobots.dodedodo", "org.dobots.dodedodo.XMPPService"));
+//		intent.setClassName("org.dobots.dodedodo", ".XMPPService");
 //		bindService(intent, mXmppServiceConnection, Context.BIND_AUTO_CREATE);
 		bindService(new Intent(this, XMPPService.class), mXmppServiceConnection, Context.BIND_AUTO_CREATE);
 		Log.i(TAG, "binding to XMPP Service");

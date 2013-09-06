@@ -1,4 +1,4 @@
-package com.example.dodedodo;
+package org.dobots.dodedodo;
 
 import java.lang.ref.WeakReference;
 

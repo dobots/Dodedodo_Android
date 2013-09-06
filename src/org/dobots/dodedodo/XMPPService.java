@@ -1,6 +1,6 @@
-package com.example.dodedodo;
+package org.dobots.dodedodo;
 
-import com.example.dodedodo.MsgService;
+import org.dobots.dodedodo.MsgService;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -229,7 +229,7 @@ public class XMPPService extends Service {
 				break;
 			case MsgService.MSG_XMPP_LOGIN:
 				Log.i(TAG, "login");
-//				SharedPreferences sharedPref = getSharedPreferences("com.example.dodedodo.login", Context.MODE_PRIVATE);
+//				SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 //				String jid = sharedPref.getString("jid", "default@default.com");
 //				String pw = sharedPref.getString("password", "default");
 //				Log.i(TAG, "jid=" + jid + " pw=" + pw);
@@ -374,7 +374,7 @@ public class XMPPService extends Service {
 	private boolean xmppConnect() {
 		Log.i(TAG, "Connecting..");
 		
-		SharedPreferences sharedPref = getSharedPreferences("com.example.dodedodo.login", Context.MODE_PRIVATE);
+		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 		String jid = sharedPref.getString("jid", "");
 		String password = sharedPref.getString("password", "");
 		Log.i(TAG, "jid=" + jid + " pw=" + password);

@@ -1,4 +1,4 @@
-package com.example.dodedodo;
+package org.dobots.dodedodo;
 
 import android.app.Activity;
 import android.content.ComponentName;
@@ -222,7 +222,7 @@ public class MainActivity extends Activity {
 			if (resultCode == RESULT_OK) {
 //				String jid = data.getExtras().getString("jid");
 //				String pw = data.getExtras().getString("password");
-//				SharedPreferences sharedPref = getSharedPreferences("com.example.dodedodo.login", Context.MODE_PRIVATE);
+//				SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 //				String jid = sharedPref.getString("jid", "default@default.com");
 //				String pw = sharedPref.getString("password", "default");
 //				Log.i(TAG, "jid=" + jid + " pw=" + pw);

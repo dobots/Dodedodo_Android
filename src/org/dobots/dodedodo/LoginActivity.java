@@ -1,4 +1,4 @@
-package com.example.dodedodo;
+package org.dobots.dodedodo;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -147,7 +147,7 @@ public class LoginActivity extends Activity {
 			// form field with an error.
 			focusView.requestFocus();
 		} else {
-			SharedPreferences sharedPref = getSharedPreferences("com.example.dodedodo.login", Context.MODE_PRIVATE);
+			SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 //			SharedPreferences sharedPref = getPreferences(Context.MODE_PRIVATE);
 			SharedPreferences.Editor editor = sharedPref.edit();
 			editor.putString("jid", mEmail);
