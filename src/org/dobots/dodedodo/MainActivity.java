@@ -179,7 +179,8 @@ public class MainActivity extends Activity {
 			case MsgService.MSG_NOT_INSTALLED:
 				Log.i(TAG, "Not installed: " + msg.getData().getString("package"));
 				// From http://stackoverflow.com/questions/2734270/how-do-i-make-links-in-a-textview-clickable
-				String link = new String("<a href=\"" + msg.getData().getString("url") + "\">" + msg.getData().getString("module") + "</a>");
+				String link = new String(mCallbackText.getText() + "<br><a href=\"" + msg.getData().getString("url") + "\">" + msg.getData().getString("module") + "</a>");
+//				mCallbackText.setText(mCallbackText.getText() +"\n" + Html.fromHtml(link)); // Doesn't work :(
 				mCallbackText.setText(Html.fromHtml(link));
 //				mCallbackText.setMovementMethod(LinkMovementMethod.getInstance());
 				
@@ -299,7 +300,4 @@ public class MainActivity extends Activity {
 		Message msg = Message.obtain(null, MsgService.MSG_USER_LOGIN);
 		msgSend(msg);
 	}
-
-
-
 }
