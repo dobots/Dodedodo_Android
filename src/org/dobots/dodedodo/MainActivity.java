@@ -12,7 +12,9 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.text.Html;
 import android.text.TextUtils;
+import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
@@ -62,6 +64,8 @@ public class MainActivity extends Activity {
 		mButtonClose = (Button) findViewById(R.id.buttonClose);
 		mButtonLogin = (Button) findViewById(R.id.buttonLogin);
 		
+		mCallbackText.setMovementMethod(LinkMovementMethod.getInstance());
+		
 		mEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
 		    @Override
 		    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
@@ -85,8 +89,13 @@ public class MainActivity extends Activity {
 		    }
 		});
 		
-		Intent intent = new Intent(this, LoginActivity.class);
-		startActivityForResult(intent, LOGIN_REPLY);
+		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
+		String jid = sharedPref.getString("jid", null);
+		String pw = sharedPref.getString("password", null);
+		if (jid == null || pw == null) {
+			Intent intent = new Intent(this, LoginActivity.class);
+			startActivityForResult(intent, LOGIN_REPLY);
+		}
 		
 //		startService(new Intent(this, XMPPService.class));
 		
@@ -133,7 +142,8 @@ public class MainActivity extends Activity {
 			// we can use to interact with the service.  We are communicating with our service through an IDL 
 			// interface, so get a client-side representation of that from the raw service object.
 			mToMsgService = new Messenger(service);
-			mCallbackText.setText("Attached to MsgService: " + mToMsgService.toString());
+//			mCallbackText.setText("Attached to MsgService: " + mToMsgService.toString());
+			mCallbackText.setText("Connected.");
 
 			Message msg = Message.obtain(null, MsgService.MSG_REGISTER);
 			Bundle bundle = new Bundle();
@@ -149,7 +159,7 @@ public class MainActivity extends Activity {
 		public void onServiceDisconnected(ComponentName className) {
 			// This is called when the connection with the service has been unexpectedly disconnected: its process crashed.
 			mToMsgService = null;
-			mCallbackText.setText("Service disconnected.");
+			mCallbackText.setText("Disconnected.");
 
 //	        Toast.makeText(Binding.this, R.string.remote_service_disconnected, Toast.LENGTH_SHORT).show();
 			Log.i(TAG, "Disconnected from MsgService");
@@ -166,6 +176,13 @@ public class MainActivity extends Activity {
 				if (msg.getData().getString("port").equals("out"))
 					mPortOutMessenger = msg.replyTo;
 				break;
+			case MsgService.MSG_NOT_INSTALLED:
+				Log.i(TAG, "Not installed: " + msg.getData().getString("package"));
+				// From http://stackoverflow.com/questions/2734270/how-do-i-make-links-in-a-textview-clickable
+				String link = new String("<a href=\"" + msg.getData().getString("url") + "\">" + msg.getData().getString("module") + "</a>");
+				mCallbackText.setText(Html.fromHtml(link));
+//				mCallbackText.setMovementMethod(LinkMovementMethod.getInstance());
+				
 			default:
 				super.handleMessage(msg);
 			}
@@ -192,7 +209,7 @@ public class MainActivity extends Activity {
 		// able to let other applications replace our component.
 		bindService(new Intent(this, MsgService.class), mMsgServiceConnection, Context.BIND_AUTO_CREATE);
 		mMsgServiceIsBound = true;
-		mCallbackText.setText("Binding to service.");
+		mCallbackText.setText("Connecting..");
 	}
 
 	void doUnbindService() {
@@ -209,7 +226,7 @@ public class MainActivity extends Activity {
 			// Detach our existing connection.
 			unbindService(mMsgServiceConnection);
 			mMsgServiceIsBound = false;
-			mCallbackText.setText("Unbinding from service.");
+			mCallbackText.setText("Disconnecting..");
 		}
 	}
 
