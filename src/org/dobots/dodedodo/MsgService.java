@@ -456,6 +456,14 @@ public class MsgService extends Service {
 //				}
 //				break;
 //			}
+			case MSG_USER_LOGIN:{
+				Log.i(TAG, "login");
+				if (mToXmppMessenger != null) {
+					Message msgLogin = Message.obtain(null, MsgService.MSG_XMPP_LOGIN);
+					msgSend(mToXmppMessenger, msgLogin);
+				}
+				break;
+			}
 			default:
 				super.handleMessage(msg);
 			}

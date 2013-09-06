@@ -234,6 +234,10 @@ public class MainActivity extends Activity {
 	protected void msgSend(Message msg) {
 		if (!mMsgServiceIsBound)
 			return;
+		if (mToMsgService == null) {
+			Log.i(TAG, "mToMsgService == null");
+			return;
+		}
 		try {
 			msg.replyTo = mFromMsgService;
 			mToMsgService.send(msg);
