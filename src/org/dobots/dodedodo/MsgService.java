@@ -130,9 +130,14 @@ class InstalledModulePort implements Serializable {
 
 class InstalledModule implements Serializable {
 	private static final long serialVersionUID = 1L;
+	
+	public static final int MODULE_TYPE_UI = 0;
+	public static final int MODULE_TYPE_BACKGROUND = 1;
+	
 	public String name; // Handy but double info
 	public String packageName;
 	public String installUrl;
+	public int type; // UI or background
 	public ArrayList<InstalledModulePort> portsIn = new ArrayList<InstalledModulePort>();
 	public ArrayList<InstalledModulePort> portsOut = new ArrayList<InstalledModulePort>();
 	public String toString() {
@@ -247,6 +252,17 @@ public class MsgService extends Service {
 				m.portsOut.add(p);
 				mInstalledModules.put(name, m);
 			}
+//			{
+//				String name = new String("PictureTransformModule");
+//				InstalledModule m = new InstalledModule();
+//				m.name = name;
+//				InstalledModulePort p = new InstalledModulePort();
+//				p.name = "out";
+//				p.dataType = DATATYPE_FLOAT;
+//				m.portsOut.add(p);
+//				mInstalledModules.put(name, m);				
+//			}
+			
 //			{
 //				String name = new String("PictureSelectModule");
 //				InstalledModule m = new InstalledModule();
@@ -391,7 +407,7 @@ public class MsgService extends Service {
 		storeInstalledModuleMap();
 	}
 
-	/** Handler of incoming messages from modules. */
+	// Handler of incoming messages from modules.
 	// TODO: give this class modulename and id variables, so that those don't have to be sent by the module
 	class IncomingMsgHandler extends Handler {
 		@Override
@@ -491,7 +507,7 @@ public class MsgService extends Service {
 		}
 	}
 	
-	/** Handler of incoming messages from XMPP service. */
+	// Handler of incoming messages from XMPP service.
 	class XmppMsgHandler extends Handler {
 		@Override
 		public void handleMessage(Message msg) {
@@ -570,15 +586,23 @@ public class MsgService extends Service {
 							String moduleName = rootNode.path("name").textValue();
 							String packageName = androidNode.path("package").textValue();
 							String url = androidNode.path("url").textValue();
+							String typeString = rootNode.path("type").textValue();
+							int type;
+							if (typeString.equals("UI"))
+								type = InstalledModule.MODULE_TYPE_UI;
+							else
+								type = InstalledModule.MODULE_TYPE_BACKGROUND;
 							
 							Log.i(TAG, "Deploy: " + moduleName);
 							Log.i(TAG, "package: " + packageName);
 							Log.i(TAG, "url: " + url);
+							Log.i(TAG, "type: " + type);
 							
 							InstalledModule m = new InstalledModule();
 							m.name = moduleName;
 							m.packageName = packageName;
 							m.installUrl = url;
+							m.type = type;
 							
 							JsonNode portsNode = rootNode.path("ports");
 							Iterator<JsonNode> portIt = portsNode.elements();
@@ -780,7 +804,11 @@ public class MsgService extends Service {
 		intent.addCategory(Intent.CATEGORY_DEFAULT);
 //		String packageName = "org.dobots." + key.mName.toLowerCase(Locale.US);
 		intent.setPackage(installedMod.packageName);
-		if (!isCallable(intent)) {
+		
+		boolean activity;
+		
+		if ((installedMod.type == InstalledModule.MODULE_TYPE_UI && !isCallableActivity(intent))
+		 || (installedMod.type == InstalledModule.MODULE_TYPE_BACKGROUND && !isCallableService(intent))) {
 			Log.i(TAG, "Cannot start module " + key.toString() + ". No such package: " + installedMod.packageName);
 			return;
 		}
@@ -808,15 +836,27 @@ public class MsgService extends Service {
 			}
 			mModules.put(key, module);
 		}
-			
-		startActivity(intent);
+		
+		if (installedMod.type == InstalledModule.MODULE_TYPE_UI) {
+			startActivity(intent);
+		}
+		else {
+			startService(intent);
+		}
 
 	}
 //	}
 	
-	private boolean isCallable(Intent intent) {
+	private boolean isCallableActivity(Intent intent) {
 	    List<ResolveInfo> list = getPackageManager().queryIntentActivities(intent, 
 	        PackageManager.MATCH_DEFAULT_ONLY);
+	    if (list == null)
+	    	return false;
+	    return list.size() > 0;
+	}
+	
+	private boolean isCallableService(Intent intent) {
+		List<ResolveInfo> list = getPackageManager().queryIntentServices(intent,PackageManager.MATCH_DEFAULT_ONLY);
 	    if (list == null)
 	    	return false;
 	    return list.size() > 0;
@@ -870,6 +910,10 @@ public class MsgService extends Service {
 	}
 	
 	private void connect(String deviceOut, ModuleKey keyOut, String portNameOut, String deviceIn, ModuleKey keyIn, String portNameIn) {
+		if (deviceOut == null || keyOut == null || portNameOut == null || deviceIn == null || keyIn == null || portNameIn == null) {
+			Log.i(TAG, "connect() failed: one or more arguments are null");
+			return;
+		}
 		
 		Module mOut;
 		ModulePort pOut;
@@ -884,6 +928,10 @@ public class MsgService extends Service {
 		mOut = mModules.get(keyOut);
 		if (mOut == null) {
 			Log.i(TAG, "module " + keyOut.toString() + " isn't in mModules");
+			return;
+		}
+		if (mOut.messenger == null) {
+			Log.i(TAG, "module " + keyOut.toString() + " isn't connected to msgService yet");
 			return;
 		}
 		
