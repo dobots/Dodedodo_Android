@@ -145,7 +145,7 @@ public class MainActivity extends Activity {
 //			mCallbackText.setText("Attached to MsgService: " + mToMsgService.toString());
 			mCallbackText.setText("Connected.");
 
-			Message msg = Message.obtain(null, MsgService.MSG_REGISTER);
+			Message msg = Message.obtain(null, AimProtocol.MSG_REGISTER);
 			Bundle bundle = new Bundle();
 			bundle.putString("module", MODULE_NAME);
 			bundle.putInt("id", 0);
@@ -171,12 +171,12 @@ public class MainActivity extends Activity {
 		@Override
 		public void handleMessage(Message msg) {
 			switch (msg.what) {
-			case MsgService.MSG_SET_MESSENGER:
+			case AimProtocol.MSG_SET_MESSENGER:
 				Log.i(TAG, "set port: " + msg.getData().getString("port") + " to: " + msg.replyTo.toString());
 				if (msg.getData().getString("port").equals("out"))
 					mPortOutMessenger = msg.replyTo;
 				break;
-			case MsgService.MSG_NOT_INSTALLED:
+			case AimProtocol.MSG_NOT_INSTALLED:
 				Log.i(TAG, "Not installed: " + msg.getData().getString("package"));
 				// From http://stackoverflow.com/questions/2734270/how-do-i-make-links-in-a-textview-clickable
 				String link = new String(mCallbackText.getText() + "<br><a href=\"" + msg.getData().getString("url") + "\">" + msg.getData().getString("module") + "</a>");
@@ -217,7 +217,7 @@ public class MainActivity extends Activity {
 		if (mMsgServiceIsBound) {
 			// If we have received the service, and registered with it, then now is the time to unregister.
 			if (mToMsgService != null) {
-				Message msg = Message.obtain(null, MsgService.MSG_UNREGISTER);
+				Message msg = Message.obtain(null, AimProtocol.MSG_UNREGISTER);
 				Bundle bundle = new Bundle();
 				bundle.putString("module", MODULE_NAME);
 				bundle.putInt("id", 0);
@@ -287,9 +287,9 @@ public class MainActivity extends Activity {
 //		bundle.putString("body", text);
 //		msg.setData(bundle);
 //		msgSend(msg);
-		Message msg = Message.obtain(null, MsgService.MSG_PORT_DATA);
+		Message msg = Message.obtain(null, AimProtocol.MSG_PORT_DATA);
 		Bundle bundle = new Bundle();
-		bundle.putInt("datatype", MsgService.DATATYPE_STRING);
+		bundle.putInt("datatype", AimProtocol.DATATYPE_STRING);
 		bundle.putString("data", text);
 		msg.setData(bundle);
 		msgSend(mPortOutMessenger, msg);
@@ -297,7 +297,7 @@ public class MainActivity extends Activity {
 	}
 	
 	public void login() {
-		Message msg = Message.obtain(null, MsgService.MSG_USER_LOGIN);
+		Message msg = Message.obtain(null, AimProtocol.MSG_USER_LOGIN);
 		msgSend(msg);
 	}
 }

@@ -64,23 +64,56 @@ public class XMPPService extends Service {
 	
 //	HashMap<PortKey, Messenger> mPortsIn = new HashMap<PortKey, Messenger>();
 	
+	public String makePortInKey(String module, int id, String port) {
+		return new String("in." + module + "." + id + "." + port);
+	}
+	
+	public String makePortOutKey(String module, int id, String port) {
+		return new String("out." + module + "." + id + "." + port);
+	}
+	
 	class PortIn {
 		public String mDevice;
+		public String mModuleName;
+		public int mModuleId;
+		public String mPortName;
 		public Messenger mMessenger;
-		public PortIn(String device, Messenger messenger) {
+		public PortIn(String device, Messenger messenger, String module, int id, String port) {
 			mDevice = device;
+			mModuleName = module;
+			mModuleId = id;
+			mPortName = port;
 			mMessenger = messenger;
 		}
 	}
 	
+	class PortOut {
+		public String mDevice;
+		public String mModuleName;
+		public int mModuleId;
+		public String mPortName;
+		public Messenger mMessenger;
+		public PortOut(String device, Messenger messenger, String module, int id, String port) {
+			mDevice = device;
+			mModuleName = module;
+			mModuleId = id;
+			mPortName = port;
+			mMessenger = messenger;
+		}
+	}
+	
+	// Key is local port
+	// Ports that get data from local modules
 	HashMap<String, PortIn> mPortsIn = new HashMap<String, PortIn>();
-
+	// Ports that send data to local modules
+	HashMap<String, PortOut> mPortsOut = new HashMap<String, PortOut>();
+	
 //	/** For showing and hiding our notification. */
 //	NotificationManager mNM;
 	
 	Messenger mMsgService = null;
 	
-	ArrayList<Messenger> mPortsOut = new ArrayList<Messenger>();
+	
 
 /*	*//** Command to register a client. The Message's replyTo field must be a Messenger of the client *//*
 	public static final int MSG_REGISTER_CLIENT = 1;
@@ -140,8 +173,8 @@ public class XMPPService extends Service {
 //				Log.i(TAG, "is Message: " + Message.class.isInstance(packet));
 
 //				android.os.Message msg = android.os.Message.obtain(null, XMPPService.MSG_RECEIVE);
-				android.os.Message msg = android.os.Message.obtain(null, MsgService.MSG_PORT_DATA);
-				Bundle bundle = new Bundle();
+//				android.os.Message msg = android.os.Message.obtain(null, MsgService.MSG_PORT_DATA);
+//				Bundle bundle = new Bundle();
 				//bundle.putString("body", packet.getBody());
 				//bundle.putString("body", packet.getProperty("body").toString());
 				Message message = (Message) packet;
@@ -150,9 +183,107 @@ public class XMPPService extends Service {
 //				body.s
 //				Log.i(TAG, "body words: " + words.toString());
 				Log.i(TAG, "body: " + body);
-				if (body.startsWith("AIM ")) {
-					bundle.putInt("datatype", MsgService.DATATYPE_STRING);
-					bundle.putString("data", body);
+				
+				// Port data: parse and send to the local module
+				if (body.startsWith("AIM data ")) {
+					// 0   1    2         3      4  5    6     7
+					// AIM data int/float module id port nDims sizeDim1 sizeDim2 .. <data>
+					// AIM data string    module id port <data>
+					String[] words = body.split(" ");
+					
+					String key = "out." + words[3] + "." + words[4] + "." + words[5];
+					Log.i(TAG, "portKey=" + key);
+					PortOut pOut = mPortsOut.get(key);
+					if (pOut == null) {
+						Log.i(TAG, "pOut == null");
+						return;
+					}
+					if (pOut.mMessenger == null) {
+						Log.i(TAG, "pOut.mMessenger == null");
+						return;
+					}
+					
+					String header = new String();
+					for (int i=0; i<6; ++i) {
+						header += words[i] + " ";
+					}
+					Log.i(TAG, "header=" + header);
+					
+					Bundle bundle = new Bundle();
+					int type = -1;
+					if (words[2].equals("string")) {
+						type = AimProtocol.DATATYPE_STRING;
+						bundle.putString("data", body.substring(header.length()));
+					}
+					else if (words[2].equals("int")) {
+						if (words[6].equals("1") && words[7].equals("1")) {
+							type = AimProtocol.DATATYPE_INT;
+							int val;
+							try {
+								val = Integer.parseInt(words[8]);
+							} catch (NumberFormatException e) {
+								Log.i(TAG, "cannot convert " + words[8] + " to int");
+								return;
+							}
+							bundle.putInt("data", val);
+						}
+						else {
+							type = AimProtocol.DATATYPE_INT_ARRAY;
+							int[] val = new int[words.length-6];
+							try {
+								for (int i=6; i<words.length; ++i) {
+									val[i-6] = Integer.parseInt(words[i]);
+								} 
+							} catch (NumberFormatException e) {
+								Log.i(TAG, "cannot convert " + body + " to int");
+								return;
+							}
+							bundle.putIntArray("data", val);
+						}
+					}
+					else if (words[2].equals("float")) {
+						if (words[6].equals("1") && words[7].equals("1")) {
+							type = AimProtocol.DATATYPE_FLOAT;
+							float val;
+							try {
+								val = Float.parseFloat(words[8]);
+							} catch (NumberFormatException e) {
+								Log.i(TAG, "cannot convert " + words[8] + " to float");
+								return;
+							}
+							bundle.putFloat("data", val);
+						}
+						else {
+							type = AimProtocol.DATATYPE_FLOAT_ARRAY;
+							float[] val = new float[words.length-6];
+							try {
+								for (int i=6; i<words.length; ++i) {
+									val[i-6] = Float.parseFloat(words[i]);
+								} 
+							} catch (NumberFormatException e) {
+								Log.i(TAG, "cannot convert " + body + " to float");
+								return;
+							}
+							bundle.putFloatArray("data", val);
+						}
+					}
+					if (type > -1) {
+						bundle.putInt("datatype", type);
+						android.os.Message portMsg = android.os.Message.obtain(null, AimProtocol.MSG_PORT_DATA);
+						//messengerMsg.replyTo = messenger;
+						portMsg.setData(bundle);
+						msgSend(pOut.mMessenger, portMsg);
+					}
+					
+				}
+				
+				// Command: send to msgService
+				else if (body.startsWith("AIM ")) {
+
+					android.os.Message msg = android.os.Message.obtain(null, AimProtocol.MSG_XMPP_MSG);
+					Bundle bundle = new Bundle();
+					bundle.putString("jid", packet.getFrom());
+					bundle.putString("body", body);
 					msg.setData(bundle);
 					msgSend(mMsgService, msg);
 				}
@@ -212,7 +343,7 @@ public class XMPPService extends Service {
 		@Override
 		public void handleMessage(android.os.Message msg) {
 			switch (msg.what) {
-			case MsgService.MSG_REGISTER:
+			case AimProtocol.MSG_REGISTER:
 //				Log.i(TAG, "client added");
 //				mClients.add(msg.replyTo);
 				Log.i(TAG, "msgService registered");
@@ -221,13 +352,13 @@ public class XMPPService extends Service {
 //				messengerMsg.replyTo = mModuleMessenger;
 //				msgSend(mMsgService, messengerMsg);
 				break;
-			case MsgService.MSG_UNREGISTER:
+			case AimProtocol.MSG_UNREGISTER:
 //				Log.i(TAG, "client removed");
 //				mClients.remove(msg.replyTo);
 				Log.i(TAG, "msgService unregistered");
 				mMsgService = null;
 				break;
-			case MsgService.MSG_XMPP_LOGIN:
+			case AimProtocol.MSG_XMPP_LOGIN:
 				Log.i(TAG, "login");
 //				SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 //				String jid = sharedPref.getString("jid", "default@default.com");
@@ -235,29 +366,54 @@ public class XMPPService extends Service {
 //				Log.i(TAG, "jid=" + jid + " pw=" + pw);
 				xmppConnect();
 				break;
-			case MsgService.MSG_SET_MESSENGER:
+			case AimProtocol.MSG_SET_MESSENGER: {
+				// Add in port of local module 
 				Log.i(TAG, "set messenger: " + msg.replyTo.toString());
-				mPortsOut.add(msg.replyTo); // TODO: remove them again..
+				String deviceOut = msg.getData().getString("otherDevice");
+				String moduleOut = msg.getData().getString("otherModule");
+				int idOut = msg.getData().getInt("otherID");
+				String portOut = msg.getData().getString("otherPort");
+				String key = msg.getData().getString("port");
+				Log.i(TAG, "key=" + key);
+				PortOut pOut = new PortOut(deviceOut, msg.replyTo, moduleOut, idOut, portOut);
+//				String key = makePortOutKey();
+//				String key = "in.test.1.test";
+				mPortsOut.put(key, pOut); // TODO: remove them again......
 				break;
-			case MsgService.MSG_GET_MESSENGER:
+			}
+			case AimProtocol.MSG_GET_MESSENGER: {
+				// Add out port of local module
 //				PortKey key = new PortKey();
 //				key.moduleName = msg.getData().getString("module");
 //				key.moduleId = msg.getData().getInt("id");
 //				key.portName = msg.getData().getString("port");
+				
+				String deviceOut = msg.getData().getString("otherDevice");
+				String moduleOut = msg.getData().getString("otherModule");
+				int idOut = msg.getData().getInt("otherID");
+				String portOut = msg.getData().getString("otherPort");
+				
 				String key = msg.getData().getString("port");
 				Messenger messenger = new Messenger(new ModuleMsgHandler(key));
-				PortIn portIn = new PortIn(msg.getData().getString("device"), messenger);
+				PortIn portIn = new PortIn(deviceOut, messenger, moduleOut, idOut, portOut);
 				mPortsIn.put(key, portIn);
 				Log.i(TAG, "get messenger " + key);
 //				Log.i(TAG, "get messenger " + key.moduleName + "[" + key.moduleId + "]:" + key.portName + " " + messenger.toString());
 				
-				android.os.Message messengerMsg = android.os.Message.obtain(null, MsgService.MSG_SET_MESSENGER);
+				android.os.Message messengerMsg = android.os.Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
 				messengerMsg.replyTo = messenger;
 				messengerMsg.setData(msg.getData());
 				msgSend(mMsgService, messengerMsg);
 				
 				break;
-			case MsgService.MSG_PORT_DATA:
+			}
+			case AimProtocol.MSG_XMPP_MSG:
+				Log.i(TAG, "Sending xmpp msg to " + msg.getData().getString("jid") + ": " + msg.getData().getString("body"));
+				if (!xmppSend(msg.getData().getString("jid"), msg.getData().getString("body"))) {
+					Log.i(TAG, "Could not send xmpp msg");
+				}
+				break;
+			case AimProtocol.MSG_PORT_DATA:
 				Log.i(TAG, "port data on wrong messenger");
 				break;
 //			case MSG_SEND:
@@ -293,29 +449,54 @@ public class XMPPService extends Service {
 //				Log.i(TAG, "client removed");
 //				mClients.remove(msg.replyTo);
 //				break;
-			case MsgService.MSG_PORT_DATA:
+			case AimProtocol.MSG_PORT_DATA:
 				Log.i(TAG, "received data from " + portName + " datatype: " + msg.getData().getInt("datatype"));
 				
-				String xmppMsg = new String(portName);
+				// AIM data int/float module id port nDims sizeDim1 sizeDim2 .. <data>
+				// AIM data string module id port <data>
+				String xmppMsg = new String("AIM data ");
+				xmppMsg += AimProtocol.getDataType(msg.getData().getInt("datatype")) + " ";
+				//String[] portNameParts = portName.split("."); // "in.module.id.portname" 
+				//xmppMsg += portNameParts[1] + " " + portNameParts[2] + " " + portNameParts[3];
+				PortIn pIn = mPortsIn.get(portName);
+				if (pIn == null)
+					return;
+				xmppMsg += pIn.mModuleName + " " + pIn.mModuleId + " " + pIn.mPortName;
 				switch (msg.getData().getInt("datatype")) {
-				case MsgService.DATATYPE_FLOAT:
+				case AimProtocol.DATATYPE_FLOAT:
+					// 1 dimensions of size 1
+					xmppMsg += " 1 1";
 					xmppMsg += " " + msg.getData().getFloat("data");
 					break;
-				case MsgService.DATATYPE_FLOAT_ARRAY:
+				case AimProtocol.DATATYPE_FLOAT_ARRAY:
+					// 1 dimension of size array.length
+					xmppMsg += " 1 " + msg.getData().getFloatArray("data").length;
 					for (float f : msg.getData().getFloatArray("data")) {
 						xmppMsg += " " + f;
 					}
 					break;
-				case MsgService.DATATYPE_STRING:
+				case AimProtocol.DATATYPE_INT:
+					// 1 dimensions of size 1
+					xmppMsg += " 1 1";
+					xmppMsg += " " + msg.getData().getInt("data");
+					break;
+				case AimProtocol.DATATYPE_INT_ARRAY:
+					// 1 dimension of size array.length
+					xmppMsg += " 1 " + msg.getData().getIntArray("data").length;
+					for (int i : msg.getData().getIntArray("data")) {
+						xmppMsg += " " + i;
+					}
+					break;
+				case AimProtocol.DATATYPE_STRING:
 					xmppMsg += " " + msg.getData().getString("data");
 					break;
-				case MsgService.DATATYPE_IMAGE:
+				case AimProtocol.DATATYPE_IMAGE:
 					break;
-				case MsgService.DATATYPE_BINARY:
+				case AimProtocol.DATATYPE_BINARY:
 					break;
 				}
 				
-				String jid = new String(mJid + "/" + mPortsIn.get(portName).mDevice);
+				String jid = new String(mJid + "/" + pIn.mDevice);
 				Log.i(TAG, "Sending to " + jid + ": " + xmppMsg);
 				if (!xmppSend(jid, xmppMsg)) {
 //					android.os.Message reply = android.os.Message.obtain(null, XMPPService.MSG_NOT_LOGGED_IN);
@@ -346,7 +527,7 @@ public class XMPPService extends Service {
 		}
 	}
 	
-	private void msgBroadcast(android.os.Message msg) {
+/*	private void msgBroadcast(android.os.Message msg) {
 		for (int i=mPortsOut.size()-1; i>=0; i--) {
 			try {
 				mPortsOut.get(i).send(msg);
@@ -356,7 +537,7 @@ public class XMPPService extends Service {
 				mPortsOut.remove(i);
 			}
 		}
-	}
+	}*/
 	
 	private boolean xmppSend(String jid, String body) {
 		if (mXmppConnection == null)
@@ -431,7 +612,7 @@ public class XMPPService extends Service {
 		mJid = jid;
 		
 //		android.os.Message loginMsg = android.os.Message.obtain(null, XMPPService.MSG_LOGGED_IN);
-		android.os.Message loginMsg = android.os.Message.obtain(null, MsgService.MSG_XMPP_LOGGED_IN);
+		android.os.Message loginMsg = android.os.Message.obtain(null, AimProtocol.MSG_XMPP_LOGGED_IN);
 		//msgBroadcast(loginMsg);
 
 //		mXmppConnection.getChatManager().addChatListener(new ChatManagerListener() {

@@ -16,14 +16,21 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ContainerNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import android.app.ActivityManager;
 //import android.app.Notification;
 //import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.app.ActivityManager.RunningServiceInfo;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -135,6 +142,7 @@ class InstalledModule implements Serializable {
 	public static final int MODULE_TYPE_BACKGROUND = 1;
 	
 	public String name; // Handy but double info
+	public String git;
 	public String packageName;
 	public String installUrl;
 	public int type; // UI or background
@@ -175,59 +183,7 @@ public class MsgService extends Service {
 	HashMap<ModuleKey, Module> mModules = new HashMap<ModuleKey, Module>();
 	
 
-	public static final int MSG_REGISTER = 1;
-	public static final int MSG_UNREGISTER = 2;
-	public static final int MSG_SET_MESSENGER = 3;
-	public static final int MSG_START = 4;
-	public static final int MSG_STOP = 5;
-	public static final int MSG_SEND = 6;
-	public static final int MSG_XMPP_LOGIN = 7;
-	public static final int MSG_ADD_PORT = 8;
-	public static final int MSG_REM_PORT = 9;
-	public static final int MSG_XMPP_LOGGED_IN = 10;
-	public static final int MSG_XMPP_DISCONNECTED = 11;
-	public static final int MSG_PORT_DATA = 12;
-	public static final int MSG_USER_LOGIN = 13;
-	public static final int MSG_GET_MESSENGER = 14;
-	public static final int MSG_NOT_INSTALLED = 15;
-	
-	public static final int DATATYPE_FLOAT = 1;
-	public static final int DATATYPE_FLOAT_ARRAY = 2;
-	public static final int DATATYPE_STRING = 3;
-	public static final int DATATYPE_IMAGE = 4;
-	public static final int DATATYPE_BINARY = 5;
-	
-	public int GetDataType(String s) {
-		int res = 0;
-		if (s.equals("float"))
-			res = DATATYPE_FLOAT;
-		else if (s.equals("floatarray"))
-			res = DATATYPE_FLOAT_ARRAY;
-		else if (s.equals("string"))
-			res = DATATYPE_STRING;
-		else if (s.equals("image"))
-			res = DATATYPE_IMAGE;
-		else if (s.equals("binary"))
-			res = DATATYPE_BINARY;
-		return res;
-	}
-	
-	public String GetDataType(int t) {
-		String res = null;
-		switch (t) {
-		case DATATYPE_FLOAT:
-			res = new String("float"); break;
-		case DATATYPE_FLOAT_ARRAY:
-			res = new String("floatarray"); break;
-		case DATATYPE_STRING:
-			res = new String("string"); break;
-		case DATATYPE_IMAGE:
-			res = new String("image"); break;
-		case DATATYPE_BINARY:
-			res = new String("binary"); break;
-		}
-		return res;
-	}
+
 	
 	@Override
 	public IBinder onBind(final Intent intent) {
@@ -240,7 +196,7 @@ public class MsgService extends Service {
 	public void onCreate() {
 		super.onCreate();
 
-//		loadInstalledModuleMap();
+		loadInstalledModuleMap();
 		if (true) {
 			{
 				String name = new String("UI");
@@ -248,7 +204,7 @@ public class MsgService extends Service {
 				m.name = name;
 				InstalledModulePort p = new InstalledModulePort();
 				p.name = "out";
-				p.dataType = DATATYPE_STRING;
+				p.dataType = AimProtocol.DATATYPE_STRING;
 				m.portsOut.add(p);
 				mInstalledModules.put(name, m);
 			}
@@ -413,7 +369,7 @@ public class MsgService extends Service {
 		@Override
 		public void handleMessage(Message msg) {
 			switch (msg.what) {
-			case MSG_REGISTER:{
+			case AimProtocol.MSG_REGISTER:{
 				ModuleKey key = new ModuleKey(msg.getData().getString("module"), msg.getData().getInt("id"));
 				Log.i(TAG, "Registering module: " + key.toString() + " " + msg.replyTo);
 
@@ -430,7 +386,7 @@ public class MsgService extends Service {
 				connectAll();
 				break;
 			}
-			case MSG_UNREGISTER:{
+			case AimProtocol.MSG_UNREGISTER:{
 				Log.i(TAG, "module removed");
 
 //				// Removal while iterating
@@ -460,7 +416,7 @@ public class MsgService extends Service {
 				
 				break;
 			}
-			case MSG_SET_MESSENGER:{
+			case AimProtocol.MSG_SET_MESSENGER:{
 				ModuleKey key = new ModuleKey(msg.getData().getString("module"), msg.getData().getInt("id"));
 				if (!mModules.containsKey(key))
 					break;
@@ -493,10 +449,10 @@ public class MsgService extends Service {
 //				}
 //				break;
 //			}
-			case MSG_USER_LOGIN:{
+			case AimProtocol.MSG_USER_LOGIN:{
 				Log.i(TAG, "login");
 				if (mToXmppMessenger != null) {
-					Message msgLogin = Message.obtain(null, MsgService.MSG_XMPP_LOGIN);
+					Message msgLogin = Message.obtain(null, AimProtocol.MSG_XMPP_LOGIN);
 					msgSend(mToXmppMessenger, msgLogin);
 				}
 				break;
@@ -512,7 +468,7 @@ public class MsgService extends Service {
 		@Override
 		public void handleMessage(Message msg) {
 			switch (msg.what) {
-			case MSG_SET_MESSENGER:{
+			case AimProtocol.MSG_SET_MESSENGER:{
 //				Log.i(TAG, "set mXmppModuleMessenger: " + msg.replyTo.toString());
 //				mXmppModuleMessenger = msg.replyTo;
 				
@@ -561,135 +517,127 @@ public class MsgService extends Service {
 				
 				break;
 			}
-			case MSG_PORT_DATA:{
-				if (msg.getData().getInt("datatype") == DATATYPE_STRING) {
-					Log.i(TAG, "XMPP command: " + msg.getData().getString("data"));
-					String[] words = msg.getData().getString("data").split(" ");
-					if (words[1].equals("deploy")) {
-						
-//					ObjectMapper mapper = new ObjectMapper();						
-//					try {
-//						Log.i(TAG, "mModules as json: " + mapper.writeValueAsString(mModules));
-//					} catch (JsonProcessingException e) {
-//						Log.i(TAG, "JsonProcessingException: Could not write mModules as json: " + e.toString());
-//					} catch (IOException e) {
-//						Log.i(TAG, "IOException: Could not write mModules as json: " + e.toString());
-//					}
-					
-						ObjectMapper mapper = new ObjectMapper();
-						JsonNode rootNode;
-						String json = new String(msg.getData().getString("data").substring(11)); // To remove "AIM deploy "
-						try {
-							rootNode = mapper.readTree(json);
-							JsonNode androidNode = rootNode.path("android"); // Use .get() instead and check result for == null
-							
-							String moduleName = rootNode.path("name").textValue();
-							String packageName = androidNode.path("package").textValue();
-							String url = androidNode.path("url").textValue();
-							String typeString = rootNode.path("type").textValue();
-							int type;
-							if (typeString.equals("UI"))
-								type = InstalledModule.MODULE_TYPE_UI;
-							else
-								type = InstalledModule.MODULE_TYPE_BACKGROUND;
-							
-							Log.i(TAG, "Deploy: " + moduleName);
-							Log.i(TAG, "package: " + packageName);
-							Log.i(TAG, "url: " + url);
-							Log.i(TAG, "type: " + type);
-							
-							InstalledModule m = new InstalledModule();
-							m.name = moduleName;
-							m.packageName = packageName;
-							m.installUrl = url;
-							m.type = type;
-							
-							JsonNode portsNode = rootNode.path("ports");
-							Iterator<JsonNode> portIt = portsNode.elements();
-							while (portIt.hasNext()) {
-								JsonNode portNode = portIt.next();
-								String portName = portNode.path("name").textValue();
-								String portDir = portNode.path("dir").textValue();
-								String portType = portNode.path("type").textValue();
-								Log.i(TAG, "port: " + portName + " " + portDir + " " + portType);
-								InstalledModulePort p = new InstalledModulePort();
-								p.name = portName;
-								p.dataType = GetDataType(portType);
-								if (portDir.equals("in"))
-									m.portsIn.add(p);
-								else
-									m.portsOut.add(p);
-							}
-							PackageManager packetMngr = getPackageManager();
-							try {
-								ApplicationInfo appInfo = packetMngr.getApplicationInfo(packageName, 0);
-								Log.i(TAG, "Application " + packageName + " found: " + appInfo.name);
-								mInstalledModules.put(m.name, m);
-							} catch(NameNotFoundException e) {
-								Log.i(TAG, "Application not found: " + e);
-								Module ui = mModules.get(new ModuleKey("UI", 0));
-								if (ui != null && ui.messenger != null) {
-									Message msgInstall = Message.obtain(null, MsgService.MSG_NOT_INSTALLED);
-									Bundle b = new Bundle();
-									b.putString("package", packageName);
-									b.putString("module", moduleName);
-									b.putString("url", url);
-									msgInstall.setData(b);
-									msgSend(ui.messenger, msgInstall);
-								}
-								
-							}
+			case AimProtocol.MSG_XMPP_MSG:{
+				Log.i(TAG, "XMPP command: " + msg.getData().getString("body"));
+				String[] words = msg.getData().getString("body").split(" ");
 
-						} catch (JsonProcessingException e) {
-							Log.i(TAG, "JsonProcessingException: Could not read json: " + e.toString());
-						} catch (IOException e) {
-							Log.i(TAG, "IOException: Could not read json: " + e.toString());
-						}
+				if (words[1].equals("deploy")) {	
+					ObjectMapper mapper = new ObjectMapper();
+					JsonNode rootNode;
+					String json = new String(msg.getData().getString("body").substring(11)); // To remove "AIM deploy "
+					try {
+						rootNode = mapper.readTree(json);
+						JsonNode androidNode = rootNode.path("android"); // Use .get() instead and check result for == null
 						
-					}
-					else if (words[1].equals("start")) {
-						if (words.length != 4)
-							break;
-						int id;
-						try {
-							id = Integer.parseInt(words[3]);
-						} catch (NumberFormatException e) {
-							Log.i(TAG, "cannot convert " + words[3] + " to int");
-							break;
-						}
-						ModuleKey key = new ModuleKey(words[2], id);
-						Log.i(TAG, "Starting module: " + key);
-						startModule(key);
-					}
-					else if (words[1].equals("stop")) {
-						if (words.length != 4)
-							break;
-						int id;
-						try {
-							id = Integer.parseInt(words[3]);
-						} catch (NumberFormatException e) {
-							Log.i(TAG, "cannot convert " + words[3] + " to int");
-							break;
-						}
-						ModuleKey key = new ModuleKey(words[2], id);
-						Log.i(TAG, "Stopping module: " + key);
-						stopModule(key);
-					}
-					else if (words[1].equals("connect")) {
-						// 0AIM 1connect 2device 3module 4id 5port 6device 7module 8id 9port
-						if (words.length != 10)
-							break;
-						int idOut, idIn;
-						try {
-							idOut = Integer.parseInt(words[4]);
-							idIn = Integer.parseInt(words[8]);
-						} catch (NumberFormatException e) {
-							Log.i(TAG, "cannot convert " + words[4] + " or " + words[8] + " to int");
-							break;
-						}
+						String moduleName = rootNode.path("name").textValue();
+						String git = rootNode.path("git").textValue();
+						String packageName = androidNode.path("package").textValue();
+						String url = androidNode.path("url").textValue();
+						String typeString = rootNode.path("type").textValue();
+						int type;
+						if (typeString.equals("UI"))
+							type = InstalledModule.MODULE_TYPE_UI;
+						else
+							type = InstalledModule.MODULE_TYPE_BACKGROUND;
 						
-						connect(words[2], new ModuleKey(words[3], idOut), words[5], words[6], new ModuleKey(words[7], idIn), words[9]);
+						Log.i(TAG, "Deploy: " + moduleName);
+						Log.i(TAG, "package: " + packageName);
+						Log.i(TAG, "url: " + url);
+						Log.i(TAG, "type: " + type);
 						
+						InstalledModule m = new InstalledModule();
+						m.name = moduleName;
+						m.git = git;
+						m.packageName = packageName;
+						m.installUrl = url;
+						m.type = type;
+						
+						JsonNode portsNode = rootNode.path("ports");
+						Iterator<JsonNode> portIt = portsNode.elements();
+						while (portIt.hasNext()) {
+							JsonNode portNode = portIt.next();
+							String portName = portNode.path("name").textValue();
+							String portDir = portNode.path("dir").textValue();
+							String portType = portNode.path("type").textValue();
+							Log.i(TAG, "port: " + portName + " " + portDir + " " + portType);
+							InstalledModulePort p = new InstalledModulePort();
+							p.name = portName;
+							p.dataType = AimProtocol.getDataType(portType);
+							if (portDir.equals("in"))
+								m.portsIn.add(p);
+							else
+								m.portsOut.add(p);
+						}
+						PackageManager packetMngr = getPackageManager();
+						try {
+							ApplicationInfo appInfo = packetMngr.getApplicationInfo(packageName, 0);
+							Log.i(TAG, "Application " + packageName + " found: " + appInfo.name);
+							mInstalledModules.put(m.name, m);
+						} catch(NameNotFoundException e) {
+							Log.i(TAG, "Application not found: " + e);
+							Module ui = mModules.get(new ModuleKey("UI", 0));
+							if (ui != null && ui.messenger != null) {
+								Message msgInstall = Message.obtain(null, AimProtocol.MSG_NOT_INSTALLED);
+								Bundle b = new Bundle();
+								b.putString("package", packageName);
+								b.putString("module", moduleName);
+								b.putString("url", url);
+								msgInstall.setData(b);
+								msgSend(ui.messenger, msgInstall);
+							}
+							
+						}
+
+					} catch (JsonProcessingException e) {
+						Log.i(TAG, "JsonProcessingException: Could not read json: " + e.toString());
+					} catch (IOException e) {
+						Log.i(TAG, "IOException: Could not read json: " + e.toString());
+					}
+					
+				}
+				else if (words[1].equals("start")) {
+					if (words.length != 4)
+						break;
+					int id;
+					try {
+						id = Integer.parseInt(words[3]);
+					} catch (NumberFormatException e) {
+						Log.i(TAG, "cannot convert " + words[3] + " to int");
+						break;
+					}
+					ModuleKey key = new ModuleKey(words[2], id);
+					Log.i(TAG, "Starting module: " + key);
+					startModule(key);
+				}
+				else if (words[1].equals("stop")) {
+					if (words.length != 4)
+						break;
+					int id;
+					try {
+						id = Integer.parseInt(words[3]);
+					} catch (NumberFormatException e) {
+						Log.i(TAG, "cannot convert " + words[3] + " to int");
+						break;
+					}
+					ModuleKey key = new ModuleKey(words[2], id);
+					Log.i(TAG, "Stopping module: " + key);
+					stopModule(key);
+				}
+				else if (words[1].equals("connect")) {
+					// 0AIM 1connect 2device 3module 4id 5port 6device 7module 8id 9port
+					if (words.length != 10)
+						break;
+					int idOut, idIn;
+					try {
+						idOut = Integer.parseInt(words[4]);
+						idIn = Integer.parseInt(words[8]);
+					} catch (NumberFormatException e) {
+						Log.i(TAG, "cannot convert " + words[4] + " or " + words[8] + " to int");
+						break;
+					}
+					
+					connect(words[2], new ModuleKey(words[3], idOut), words[5], words[6], new ModuleKey(words[7], idIn), words[9]);
+					
 //						// Check if port in exists
 //						ModuleKey otherKey = new ModuleKey(words[5], otherId);
 //						Module otherMod = mModules.get(otherKey);
@@ -724,9 +672,99 @@ public class MsgService extends Service {
 //						}
 //						else
 //							Log.i(TAG, "module " + key.toString() + " isn't in mModules");
+				}
+				else if (words[1].equals("uninstall")) {
+					
+				}
+				else if (words[1].equals("list")) {
+//						ObjectMapper mapper = new ObjectMapper();						
+//						try {
+//							Log.i(TAG, "mModules as json: " + mapper.writeValueAsString(mModules));
+//						} catch (JsonProcessingException e) {
+//							Log.i(TAG, "JsonProcessingException: Could not write mModules as json: " + e.toString());
+//						} catch (IOException e) {
+//							Log.i(TAG, "IOException: Could not write mModules as json: " + e.toString());
+//						}
+					
+					ObjectMapper mapper = new ObjectMapper();
+//						ObjectNode rootNode = mapper.createObjectNode();
+					ArrayNode rootNode = mapper.createArrayNode();
+					for (InstalledModule m : mInstalledModules.values()) {
+						if (m.name.equals("UI")) // Don't show the UI as module
+							continue;
+						ObjectNode moduleNode = rootNode.addObject();
+						moduleNode.put("name", m.name);
+						String type;
+						switch (m.type) {
+						case InstalledModule.MODULE_TYPE_UI:
+							type = "UI";
+							break;
+						//case InstalledModule.MODULE_TYPE_BACKGROUND:
+						default:
+							type = "Background";
+						}
+						moduleNode.put("type", type);
+						moduleNode.put("git", m.git);
+						ObjectNode androidNode = moduleNode.putObject("android");
+						androidNode.put("package", m.packageName);
+						androidNode.put("url", m.installUrl);
+						ArrayNode portsNode = moduleNode.putArray("ports");
+						for (InstalledModulePort p : m.portsOut) {
+							ObjectNode portNode = portsNode.addObject();
+							portNode.put("name", p.name);
+							portNode.put("dir", "out");
+							portNode.put("type", AimProtocol.getDataType(p.dataType));
+						}
+						for (InstalledModulePort p : m.portsIn) {
+							ObjectNode portNode = portsNode.addObject();
+							portNode.put("name", p.name);
+							portNode.put("dir", "in");
+							portNode.put("type", AimProtocol.getDataType(p.dataType));
+						}
 					}
-					else if (words[1].equals("uninstall")) {
+					try {
+						String json = mapper.writeValueAsString(rootNode);
+						Message listMsg = Message.obtain(null, AimProtocol.MSG_XMPP_MSG);
+						Bundle bundle = new Bundle();
+						bundle.putString("jid", msg.getData().getString("jid"));
+						bundle.putString("body", "AIM list_result " + json);
+						listMsg.setData(bundle);
+						listMsg.replyTo = mFromXmppMessenger;
+						msgSend(mToXmppMessenger, listMsg);
 						
+					} catch (JsonMappingException e) {
+						Log.i(TAG, "JsonMappingException: Could not map json: " + e.toString());
+					} catch (JsonGenerationException e) {
+						Log.i(TAG, "JsonGenerationException: Could not generatre json: " + e.toString());
+					} catch (IOException e) {
+						Log.i(TAG, "IOException: Could not write json: " + e.toString());
+					}
+					
+				}
+				else if (words[1].equals("status")) {
+					String json = null;
+					switch(words.length) {
+					case 2:
+						json = getStatus(null, 0, null);
+						
+						// Reply status of all modules
+						break;
+					case 3:
+						// Reply status of a module
+						break;
+					case 4:
+						// Reply status of a port of a module
+						break;
+						
+					}
+					if (json != null) {
+						Message statusMsg = Message.obtain(null, AimProtocol.MSG_XMPP_MSG);
+						Bundle bundle = new Bundle();
+						bundle.putString("jid", msg.getData().getString("jid"));
+						bundle.putString("body", "AIM status_result " + json);
+						statusMsg.setData(bundle);
+						statusMsg.replyTo = mFromXmppMessenger;
+						msgSend(mToXmppMessenger, statusMsg);
 					}
 				}
 			}
@@ -867,7 +905,7 @@ public class MsgService extends Service {
 		Module m = mModules.get(key);
 		if (m != null)
 		{
-			Message messengerMsg = Message.obtain(null, MSG_STOP);
+			Message messengerMsg = Message.obtain(null, AimProtocol.MSG_STOP);
 			msgSend(m.messenger, messengerMsg);
 			mModules.remove(key);
 		}
@@ -898,7 +936,7 @@ public class MsgService extends Service {
 							+ " to " + keyIn.toString() + ":" + portIn + ".messenger"
 							+ " " + pOut.messenger
 							);
-					Message messengerMsg = Message.obtain(null, MSG_SET_MESSENGER);
+					Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
 					Bundle bundle = new Bundle();
 					bundle.putString("port", pIn.otherPortName);
 					messengerMsg.setData(bundle);
@@ -909,106 +947,187 @@ public class MsgService extends Service {
 		}
 	}
 	
+	// TODO: get rid of duplicate code
 	private void connect(String deviceOut, ModuleKey keyOut, String portNameOut, String deviceIn, ModuleKey keyIn, String portNameIn) {
 		if (deviceOut == null || keyOut == null || portNameOut == null || deviceIn == null || keyIn == null || portNameIn == null) {
 			Log.i(TAG, "connect() failed: one or more arguments are null");
 			return;
 		}
 		
-		Module mOut;
-		ModulePort pOut;
-		Module mIn;
-		ModulePort pIn;
+		Log.i(TAG, "connect() " + deviceOut + "/" + keyOut.toString() + ":" + portNameOut + " " + deviceIn + "/" + keyIn.toString() + ":" + portNameIn);
 		
-		// Get correct module out
-		if (!deviceOut.equals("local")) {
-			keyOut.mName = "XMPP";
-			keyOut.mId = 0;
-		}
-		mOut = mModules.get(keyOut);
-		if (mOut == null) {
-			Log.i(TAG, "module " + keyOut.toString() + " isn't in mModules");
-			return;
-		}
-		if (mOut.messenger == null) {
-			Log.i(TAG, "module " + keyOut.toString() + " isn't connected to msgService yet");
-			return;
-		}
+		// 3 Options: (in = local, out = local), (in = local, out != local), (in != local, out = local) 
+	
+		ModuleKey xmppKey = new ModuleKey("XMPP", 0);
+		Module xmppModule = mModules.get(xmppKey);
 		
-		// Get correct port out
-		if (!deviceOut.equals("local")) {
-			portNameOut = "out." + keyIn.mName + "." + keyIn.mId + "." + portNameIn;
-			pOut = new ModulePort();
-			pOut.name = portNameOut;
-			mOut.portsOut.put(portNameOut, pOut);
-		}
-		else {
-			pOut = mOut.portsOut.get(portNameOut);
+		if (deviceOut.equals("local")) {
+			Module mOut = mModules.get(keyOut);
+			if (mOut == null) {
+				Log.i(TAG, "module " + keyOut.toString() + " isn't in mModules, start it first");
+				return;
+			}
+			
+			ModulePort pOut = mOut.portsOut.get(portNameOut);
 			if (pOut == null) {
 				Log.i(TAG, "port " + portNameOut + " isn't in " + keyOut.toString());
 				return;
 			}
+			
+			pOut.otherModuleDevice = deviceIn;
+			pOut.otherModuleName = keyIn.mName;
+			pOut.otherModuleId = keyIn.mId;
+			pOut.otherPortName = portNameIn;
+			
+			// Case: (in = local, out = local)
+			if (deviceIn.equals("local")) {
+				Module mIn = mModules.get(keyIn);
+				if (mIn == null) {
+					Log.i(TAG, "module " + keyIn.toString() + " isn't in mModules");
+					return;
+				}
+				ModulePort pIn = mIn.portsIn.get(portNameIn);
+				if (pIn == null) {
+					Log.i(TAG, "port " + portNameIn + " isn't in " + keyIn.toString());
+					return;
+				}
+				pIn.otherModuleDevice = deviceOut;
+				pIn.otherModuleName = keyOut.mName;
+				pIn.otherModuleId = keyOut.mId;
+				pIn.otherPortName = portNameOut;
+				
+				if (pIn.messenger != null && mOut.messenger != null) {
+					pOut.messenger = pIn.messenger;
+					Log.i(TAG, "set " + keyOut.toString() + ":" + portNameOut + ".messenger"
+							+ " to " + keyIn.toString() + ":" + portNameIn + ".messenger"
+							+ " " + pOut.messenger
+							);
+					Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
+					Bundle bundle = new Bundle();
+					bundle.putString("port", portNameOut);
+					messengerMsg.setData(bundle);
+					messengerMsg.replyTo = pOut.messenger;
+					msgSend(mOut.messenger, messengerMsg);
+				}
+				else {
+					// TODO: only this new connection
+					getMessengers();
+				}
+				
+			}
+			
+			// Case: (in != local, out = local)
+			else {
+				if (xmppModule == null) {
+					Log.i(TAG, "xmppModule isn't in mModules");
+					return;
+				}
+				String xmppPortName = "in." + keyOut.mName + "." + keyOut.mId + "." + portNameOut;
+				ModulePort xmppPort = xmppModule.portsIn.get(xmppPortName);
+				if (xmppPort == null) {
+					xmppPort = new ModulePort();
+					xmppPort.name = xmppPortName;
+					xmppPort.otherModuleDevice = deviceOut;
+					xmppPort.otherModuleName = keyOut.mName;
+					xmppPort.otherModuleId = keyOut.mId;
+					xmppPort.otherPortName = portNameOut;
+					xmppModule.portsIn.put(xmppPortName, xmppPort);
+				}
+				if (xmppPort.messenger != null && mOut.messenger != null) {
+					pOut.messenger = xmppPort.messenger;
+					Log.i(TAG, "set " + keyOut.toString() + ":" + portNameOut + ".messenger"
+                            + " to " + xmppKey.toString() + ":" + xmppPortName + ".messenger"
+                            + " " + xmppPort.messenger
+                            );
+					Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
+					Bundle bundle = new Bundle();
+					bundle.putString("port", portNameOut);
+					// Add extra info, so that the xmppService knows where to send it to
+					bundle.putString("otherDevice", deviceIn);
+					bundle.putString("otherModule", keyIn.mName);
+					bundle.putInt("otherID", keyIn.mId);
+					bundle.putString("otherPort", portNameIn);
+					messengerMsg.setData(bundle);
+					messengerMsg.replyTo = pOut.messenger;
+					msgSend(mOut.messenger, messengerMsg);
+				}
+				else {
+					// TODO: only this new connection
+					getMessengers();
+				}
+			}
 		}
 		
-		// Get correct module in
-		if (!deviceIn.equals("local")) {
-			keyIn.mName = "XMPP";
-			keyIn.mId = 0;
-		}
-		mIn = mModules.get(keyIn);
-		if (mIn == null) {
-			Log.i(TAG, "module " + keyIn.toString() + " isn't in mModules");
-			return;
-		}
-		
-		// Get correct port in
-		if (!deviceIn.equals("local")) {
-			portNameIn = "in." + keyOut.mName + "." + keyOut.mId + "." + portNameOut;
-			pIn = new ModulePort();
-			pIn.name = portNameIn;
-			mIn.portsIn.put(portNameIn, pIn);
-		}
+		// Case: (in = local, out != local)
 		else {
-			pIn = mIn.portsIn.get(portNameIn);
+			if (!deviceIn.equals("local")) {
+				Log.i(TAG, "Can't connect 2 non local modules!");
+				return;
+			}
+			
+			Module mIn = mModules.get(keyIn);
+			if (mIn == null) {
+				Log.i(TAG, "module " + keyIn.toString() + " isn't in mModules, start it first");
+				return;
+			}
+			
+			ModulePort pIn = mIn.portsIn.get(portNameIn);
 			if (pIn == null) {
 				Log.i(TAG, "port " + portNameIn + " isn't in " + keyIn.toString());
 				return;
 			}
-		}
-		
-		pOut.otherModuleDevice = deviceIn;
-		pOut.otherModuleName = keyIn.mName;
-		pOut.otherModuleId = keyIn.mId;
-		pOut.otherPortName = portNameIn;
-
-		pIn.otherModuleDevice = deviceOut;
-		pIn.otherModuleName = keyOut.mName;
-		pIn.otherModuleId = keyOut.mId;
-		pIn.otherPortName = portNameOut;
-
-		pOut.messenger = pIn.messenger; 
-		if (pOut.messenger != null) {
-			Log.i(TAG, "set " + keyOut.toString() + ":" + portNameOut + ".messenger"
-					+ " to " + keyIn.toString() + ":" + portNameIn + ".messenger"
-					+ " " + pOut.messenger
-					);
-			Message messengerMsg = Message.obtain(null, MSG_SET_MESSENGER);
-			Bundle bundle = new Bundle();
-			bundle.putString("port", portNameOut);
-			messengerMsg.setData(bundle);
-			messengerMsg.replyTo = pOut.messenger;
-			msgSend(mOut.messenger, messengerMsg);
-		}
-		else {
-			// TODO: only this new connection
-			getMessengers();
+			
+			pIn.otherModuleDevice = deviceOut;
+			pIn.otherModuleName = keyOut.mName;
+			pIn.otherModuleId = keyOut.mId;
+			pIn.otherPortName = portNameOut;
+			
+			String xmppPortName = "out." + keyIn.mName + "." + keyIn.mId + "." + portNameIn;
+			//String xmppPortName = XMPPService.
+			ModulePort xmppPort = xmppModule.portsOut.get(xmppPortName);
+			if (xmppPort == null) {
+				xmppPort = new ModulePort();
+				xmppPort.name = xmppPortName;
+				xmppPort.otherModuleDevice = deviceIn;
+				xmppPort.otherModuleName = keyIn.mName;
+				xmppPort.otherModuleId = keyIn.mId;
+				xmppPort.otherPortName = portNameIn;
+				xmppModule.portsOut.put(xmppPortName, xmppPort);
+			}
+			if (pIn.messenger != null && mToXmppMessenger != null) {
+				xmppPort.messenger = pIn.messenger;
+				Log.i(TAG, "set " + xmppKey.toString() + ":" + xmppPort + ".messenger"
+                        + " to " + keyIn.toString() + ":" + portNameIn + ".messenger"
+                        + " " + pIn.messenger
+                        );
+				Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
+				Bundle bundle = new Bundle();
+				bundle.putString("port", xmppPortName);
+				// Add extra info, so that the xmppService knows where the messages come from
+				bundle.putString("otherDevice", deviceOut);
+				bundle.putString("otherModule", keyOut.mName);
+				bundle.putInt("otherID", keyOut.mId);
+				bundle.putString("otherPort", portNameOut);
+				messengerMsg.setData(bundle);
+				messengerMsg.replyTo = xmppPort.messenger;
+				msgSend(mToXmppMessenger, messengerMsg);
+			}
+			else {
+				// Do we need this? messenger doesn't have to be generated!
+//				getMessengers();
+			}
 		}
 	}
 	
 	// Loop all modules and try to connect their ports
+	// TODO: get rid of duplicate code
 	private void connectAll() {
 		Log.i(TAG, "connectAll");
 		ModuleKey otherKey = new ModuleKey("", 0);
+		
+		ModuleKey xmppKey = new ModuleKey("XMPP" , 0);
+		Module xmppModule = mModules.get(xmppKey);
+		
 		for (Module module : mModules.values()) {
 
 			Log.i(TAG, "module " + module.key.toString());
@@ -1018,69 +1137,104 @@ public class MsgService extends Service {
 				continue;
 			}
 			
-			
-			// Connect all incoming ports
-			for (ModulePort port : module.portsIn.values()) {
-//				ModuleKey otherKey = new ModuleKey();
-				otherKey.mName = port.otherModuleName;
-				otherKey.mId = port.otherModuleId;
-				
-//				Log.i(TAG, "in port " + port.name + " other module: " + otherKey.mName + "[" + otherKey.mId + "]:" + port.otherPortName);
-				Log.i(TAG, "in port " + port.toString());
-				
-				if (mModules.containsKey(otherKey)) {
-					Module otherMod = mModules.get(otherKey);
-					
-					if (otherMod.messenger == null)
-						continue;
-					
-					if (otherMod.portsIn.containsKey(port.otherPortName)) {
-						port.messenger = otherMod.portsIn.get(port.otherPortName).messenger;
-						if (port.messenger != null) {
-							Log.i(TAG, "set " + module.key.toString() + ":" + port.name + ".messenger"
-									+ " to " + otherKey.toString() + ":" + port.otherPortName + ".messenger"
-									+ " " + port.messenger
-									);
-							// Only have to SET_MESSENGER at out ports
-//							Message messengerMsg = Message.obtain(null, MSG_SET_MESSENGER);
-//							Bundle bundle = new Bundle();
-//							bundle.putString("port", port.name);
-//							messengerMsg.setData(bundle);
-//							messengerMsg.replyTo = port.messenger;
-//							msgSend(module.messenger, messengerMsg);
-						}
-					}
-				}
-			}
-			
 			// Connect all outgoing ports
 			for (ModulePort port : module.portsOut.values()) {
-//				ModuleKey otherKey = new ModuleKey();
-				otherKey.mName = port.otherModuleName;
-				otherKey.mId = port.otherModuleId;
 				
-				Log.i(TAG, "out port " + port.name + " other module: " + otherKey.toString() + ":" + port.otherPortName);
+				if (port.otherModuleDevice == null || port.otherModuleName == null || port.otherModuleId < 0 || port.otherPortName == null)
+					continue;
 				
-				if (mModules.containsKey(otherKey)) {
+				// Case: out != local, in = local
+				if (module.key.mName.equals("XMPP")) {
+					otherKey.mName = port.otherModuleName;
+					otherKey.mId = port.otherModuleId;
+					Log.i(TAG, "out port " + port.name + " other module: " + otherKey.toString() + ":" + port.otherPortName);
 					Module otherMod = mModules.get(otherKey);
-					if (otherMod.portsIn.containsKey(port.otherPortName)) {
-						port.messenger = otherMod.portsIn.get(port.otherPortName).messenger; 
-						if (port.messenger != null) {
-							Log.i(TAG, "set " + module.key.mName + "[" + module.key.mId + "]:" + port.name + ".messenger"
-									+ " to " + otherKey.mName + "[" + otherKey.mId + "]:" + port.otherPortName + ".messenger"
-									+ " " + port.messenger
-									);
-							Message messengerMsg = Message.obtain(null, MSG_SET_MESSENGER);
-							Bundle bundle = new Bundle();
-							bundle.putString("port", port.name);
-							messengerMsg.setData(bundle);
-							messengerMsg.replyTo = port.messenger;
-							msgSend(module.messenger, messengerMsg);
+					if (otherMod != null) {
+						ModulePort pIn = otherMod.portsIn.get(port.otherPortName);
+						if (pIn != null) {
+							port.messenger = pIn.messenger;
+							if (port.messenger != null) {
+								Log.i(TAG, "set " + module.key.mName + "[" + module.key.mId + "]:" + port.name + ".messenger"
+										+ " to " + otherKey.mName + "[" + otherKey.mId + "]:" + port.otherPortName + ".messenger"
+										+ " " + port.messenger
+										);
+								Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
+								Bundle bundle = new Bundle();
+								bundle.putString("port", port.name);
+								// Add extra info, so that the xmppService knows where the messages come from
+								bundle.putString("otherDevice", pIn.otherModuleDevice);
+								bundle.putString("otherModule", pIn.otherModuleName);
+								bundle.putInt("otherID", pIn.otherModuleId);
+								bundle.putString("otherPort", pIn.otherPortName);
+								messengerMsg.setData(bundle);
+								messengerMsg.replyTo = port.messenger;
+//								msgSend(module.messenger, messengerMsg);
+								msgSend(mToXmppMessenger, messengerMsg);
+							}
+						}
+					}					
+				}
+				
+				// Case: out = local, in = local
+				else if (port.otherModuleDevice.equals("local")) {
+					otherKey.mName = port.otherModuleName;
+					otherKey.mId = port.otherModuleId;
+					Log.i(TAG, "out port " + port.name + " other module: " + otherKey.toString() + ":" + port.otherPortName);
+					
+					Module otherMod = mModules.get(otherKey);
+					if (otherMod != null) {
+						ModulePort pIn = otherMod.portsIn.get(port.otherPortName);
+						if (pIn != null) {
+							port.messenger = pIn.messenger; 
+							if (port.messenger != null) {
+								Log.i(TAG, "set " + module.key.mName + "[" + module.key.mId + "]:" + port.name + ".messenger"
+										+ " to " + otherKey.mName + "[" + otherKey.mId + "]:" + port.otherPortName + ".messenger"
+										+ " " + port.messenger
+										);
+								Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
+								Bundle bundle = new Bundle();
+								bundle.putString("port", port.name);
+								messengerMsg.setData(bundle);
+								messengerMsg.replyTo = port.messenger;
+								msgSend(module.messenger, messengerMsg);
+							}
 						}
 					}
 				}
-			}
-		}
+				
+				// Case: out = local, in != local
+				else {
+					otherKey.mName = port.otherModuleName;
+					otherKey.mId = port.otherModuleId;
+					
+					String xmppPortName = "in." + port.otherModuleName + "." + port.otherModuleId + "." + port.otherPortName;
+					ModulePort xmppPort = xmppModule.portsIn.get(xmppPortName);
+					
+					
+					Log.i(TAG, "out port " + port.name + " other module: " + otherKey.toString() + ":" + port.otherPortName);
+					
+					port.messenger = xmppPort.messenger; 
+					if (port.messenger != null) {
+						Log.i(TAG, "set " + module.key.mName + "[" + module.key.mId + "]:" + port.name + ".messenger"
+								+ " to " + otherKey.mName + "[" + otherKey.mId + "]:" + port.otherPortName + ".messenger"
+								+ " " + port.messenger
+								);
+						Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
+						Bundle bundle = new Bundle();
+						bundle.putString("port", port.name);
+//						// Add extra info, so that the xmppService knows where to send it to
+//						bundle.putString("otherDevice", port.otherModuleDevice);
+//						bundle.putString("otherModule", port.otherModuleName);
+//						bundle.putInt("otherID", port.otherModuleId);
+//						bundle.putString("otherPort", port.otherPortName);
+						messengerMsg.setData(bundle);
+						messengerMsg.replyTo = port.messenger;
+						msgSend(module.messenger, messengerMsg);
+					}
+				}
+
+			} // end port loop
+		} // end module loop
 	}
 	
 	private void getMessengers() {
@@ -1095,28 +1249,30 @@ public class MsgService extends Service {
 			if (port.otherModuleName == null || port.otherModuleId < 0 || port.otherPortName == null || port.otherModuleDevice == null)
 				continue;
 			
-			Message msg = Message.obtain(null, MSG_GET_MESSENGER);
+			ModuleKey outKey = new ModuleKey(port.otherModuleName, port.otherModuleId);
+			Module outModule = mModules.get(outKey);
+			if (outModule == null)
+				continue;
+			ModulePort outPort = outModule.portsOut.get(port.otherPortName);
+			if (outPort == null)
+				continue;
+			
+			Message msg = Message.obtain(null, AimProtocol.MSG_GET_MESSENGER);
 			msg.replyTo = mFromXmppMessenger;
 			Bundle bundle = new Bundle();
-//			bundle.putString("module", port.otherModuleName);
-//			bundle.putInt("id", port.otherModuleId);
-//			bundle.putString("port", port.otherPortName);
 			String portName = new String();
 			portName = "in." + port.otherModuleName + "." + port.otherModuleId + "." + port.otherPortName;
 			bundle.putString("port", portName);
+
+			bundle.putString("otherDevice", outPort.otherModuleDevice);
+			bundle.putString("otherModule", outPort.otherModuleName);
+			bundle.putInt("otherID", outPort.otherModuleId);
+			bundle.putString("otherPort", outPort.otherPortName);
 			
-			ModuleKey otherKey = new ModuleKey(port.otherModuleName, port.otherModuleId);
-			Module otherMod = mModules.get(otherKey);
-			if (otherMod == null)
-				continue;
-			ModulePort otherPort = otherMod.portsOut.get(port.otherPortName);
-			if (otherPort == null)
-				continue;
-			
-			bundle.putString("device", otherPort.otherModuleDevice);
 			msg.setData(bundle);
 			msgSend(mToXmppMessenger, msg);
-			Log.i(TAG,"Sent get messenger: " + portName + "/" + otherPort.otherModuleDevice);
+			Log.i(TAG,"Sent get messenger: " + portName + " --> " + outPort.otherModuleDevice + " " +
+					outPort.otherModuleName + "[" + outPort.otherModuleId + "]:" + outPort.otherPortName);
 		}
 	}
 	
@@ -1192,11 +1348,11 @@ public class MsgService extends Service {
 			
 			Log.i(TAG, "Attached to XmppService: " + mToXmppMessenger.toString());
 			
-			Message msg = Message.obtain(null, MSG_REGISTER);
+			Message msg = Message.obtain(null, AimProtocol.MSG_REGISTER);
 			msg.replyTo = mFromXmppMessenger;
 			msgSend(mToXmppMessenger, msg);
 			
-			msg = Message.obtain(null, MSG_XMPP_LOGIN);
+			msg = Message.obtain(null, AimProtocol.MSG_XMPP_LOGIN);
 			msgSend(mToXmppMessenger, msg);
 			
 			getMessengers();
@@ -1231,7 +1387,7 @@ public class MsgService extends Service {
 		if (mXmppServiceIsBound) {
 			// If we have received the service, and registered with it, then now is the time to unregister.
 			if (mToXmppMessenger != null) {
-				Message msg = Message.obtain(null, MSG_UNREGISTER);
+				Message msg = Message.obtain(null, AimProtocol.MSG_UNREGISTER);
 				msg.replyTo = mFromModuleMessenger;
 				msgSend(mToXmppMessenger, msg);
 			}
@@ -1240,6 +1396,88 @@ public class MsgService extends Service {
 			mXmppServiceIsBound = false;
 //			mCallbackText.setText("Unbinding from service.");
 		}
+	}
+	
+	
+
+//	void getPortStatus(ObjectNode n, ModulePort p) {
+//		n.put("name", p.name);
+//	}
+	String getPortStatus(Module m, ModulePort p) {
+//		ModulePort p = m.portsIn.get(portName);
+//		if (p == null) {
+//			p = m.portsOut.get(portName);
+//			if (p == null)
+//				return "";
+//		}
+		if (p.messenger != null)
+			return "connected";
+		else
+			return "disconnected";
+	}
+	
+	String getModuleStatus(String moduleName, int id) {
+//        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+//        for (RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+//            if (PictureTransformModuleService.class.getName().equals(service.service.getClassName())) {
+//                return "running";
+//            }
+//        }
+		Module m = mModules.get(new ModuleKey(moduleName, id));
+		if (m == null)
+			return "stopped";
+		if (m.messenger == null)
+			return "stopped";
+		return "running";
+	}
+	
+	void getStatus(ModulePort p, ArrayNode parentNode) {
+		ObjectNode portNode = parentNode.addObject();
+		portNode.put("name", p.name);
+		portNode.put("otherModuleDevice", p.otherModuleDevice);
+		portNode.put("otherModule", p.otherModuleName);
+		portNode.put("otherModuleId", p.otherModuleId);
+		portNode.put("otherModulePort", p.otherPortName);
+	}
+	
+	void getStatus(Module m, ArrayNode parentNode) {
+		if (m.messenger == null)
+			return;
+		ObjectNode moduleNode = parentNode.addObject();
+		moduleNode.put("name", m.key.mName);
+		moduleNode.put("ID", m.key.mId);
+		moduleNode.put("active", "1"); // TODO: check if active
+		ArrayNode portsNode = moduleNode.putArray("ports");
+		for (ModulePort p : m.portsIn.values()) {
+			getStatus(p, portsNode);
+		}
+		for (ModulePort p : m.portsOut.values()) {
+			getStatus(p, portsNode);
+		}
+	}
+	
+	String getStatus(String moduleName, int id, String portName) {
+		ObjectMapper mapper = new ObjectMapper();
+		ArrayNode rootNode = mapper.createArrayNode();
+		if (moduleName == null) {		
+			for (Module m : mModules.values()) {
+				getStatus(m, rootNode);
+			}
+		}
+		// if name+id
+		// if name+id+port
+		String json = null;
+		try {
+			json = mapper.writeValueAsString(rootNode);
+			
+		} catch (JsonMappingException e) {
+			Log.i(TAG, "JsonMappingException: Could not map json: " + e.toString());
+		} catch (JsonGenerationException e) {
+			Log.i(TAG, "JsonGenerationException: Could not generatre json: " + e.toString());
+		} catch (IOException e) {
+			Log.i(TAG, "IOException: Could not write json: " + e.toString());
+		}
+		return json;
 	}
 	
 //	protected void msgSend(Message msg) {
