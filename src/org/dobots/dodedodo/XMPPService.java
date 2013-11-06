@@ -454,41 +454,47 @@ public class XMPPService extends Service {
 				
 				// AIM data int/float module id port nDims sizeDim1 sizeDim2 .. <data>
 				// AIM data string module id port <data>
-				String xmppMsg = new String("AIM data ");
-				xmppMsg += AimProtocol.getDataType(msg.getData().getInt("datatype")) + " ";
+				StringBuffer xmppMsg = new StringBuffer("AIM data ");
+				xmppMsg.append(AimProtocol.getDataType(msg.getData().getInt("datatype")));
+				xmppMsg.append(" ");
 				//String[] portNameParts = portName.split("."); // "in.module.id.portname" 
 				//xmppMsg += portNameParts[1] + " " + portNameParts[2] + " " + portNameParts[3];
 				PortIn pIn = mPortsIn.get(portName);
 				if (pIn == null)
 					return;
-				xmppMsg += pIn.mModuleName + " " + pIn.mModuleId + " " + pIn.mPortName;
+				xmppMsg.append(pIn.mModuleName);
+				xmppMsg.append(" ");
+				xmppMsg.append(pIn.mModuleId);
+				xmppMsg.append(" ");
+				xmppMsg.append(pIn.mPortName);
 				switch (msg.getData().getInt("datatype")) {
 				case AimProtocol.DATATYPE_FLOAT:
 					// 1 dimensions of size 1
-					xmppMsg += " 1 1";
-					xmppMsg += " " + msg.getData().getFloat("data");
+					xmppMsg.append(" 1 1 ");
+					xmppMsg.append(msg.getData().getFloat("data"));
 					break;
 				case AimProtocol.DATATYPE_FLOAT_ARRAY:
-					// 1 dimension of size array.length
-					xmppMsg += " 1 " + msg.getData().getFloatArray("data").length;
+					//xmppMsg += " 1 " + msg.getData().getFloatArray("data").length;
 					for (float f : msg.getData().getFloatArray("data")) {
-						xmppMsg += " " + f;
+						xmppMsg.append(" ");
+						xmppMsg.append(f);
 					}
 					break;
 				case AimProtocol.DATATYPE_INT:
 					// 1 dimensions of size 1
-					xmppMsg += " 1 1";
-					xmppMsg += " " + msg.getData().getInt("data");
+					xmppMsg.append(" 1 1 ");
+					xmppMsg.append(msg.getData().getInt("data"));
 					break;
 				case AimProtocol.DATATYPE_INT_ARRAY:
-					// 1 dimension of size array.length
-					xmppMsg += " 1 " + msg.getData().getIntArray("data").length;
+					// xmppMsg += " 1 " + msg.getData().getIntArray("data").length;
 					for (int i : msg.getData().getIntArray("data")) {
-						xmppMsg += " " + i;
+						xmppMsg.append(" ");
+						xmppMsg.append(i);
 					}
 					break;
 				case AimProtocol.DATATYPE_STRING:
-					xmppMsg += " " + msg.getData().getString("data");
+					xmppMsg.append(" ");
+					xmppMsg.append(msg.getData().getString("data"));
 					break;
 				case AimProtocol.DATATYPE_IMAGE:
 					break;
@@ -498,7 +504,7 @@ public class XMPPService extends Service {
 				
 				String jid = new String(mJid + "/" + pIn.mDevice);
 				Log.i(TAG, "Sending to " + jid + ": " + xmppMsg);
-				if (!xmppSend(jid, xmppMsg)) {
+				if (!xmppSend(jid, xmppMsg.toString())) {
 //					android.os.Message reply = android.os.Message.obtain(null, XMPPService.MSG_NOT_LOGGED_IN);
 //					if (msg.replyTo == null) {
 //						Log.i(TAG, "msg.replyTo is null!!");
