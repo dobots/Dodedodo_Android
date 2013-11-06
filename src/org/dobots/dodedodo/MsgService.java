@@ -1036,9 +1036,9 @@ public class MsgService extends Service {
 				if (xmppPort.messenger != null && mOut.messenger != null) {
 					pOut.messenger = xmppPort.messenger;
 					Log.i(TAG, "set " + keyOut.toString() + ":" + portNameOut + ".messenger"
-                            + " to " + xmppKey.toString() + ":" + xmppPortName + ".messenger"
-                            + " " + xmppPort.messenger
-                            );
+							+ " to " + xmppKey.toString() + ":" + xmppPortName + ".messenger"
+							+ " " + xmppPort.messenger
+							);
 					Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
 					Bundle bundle = new Bundle();
 					bundle.putString("port", portNameOut);
@@ -1097,9 +1097,9 @@ public class MsgService extends Service {
 			if (pIn.messenger != null && mToXmppMessenger != null) {
 				xmppPort.messenger = pIn.messenger;
 				Log.i(TAG, "set " + xmppKey.toString() + ":" + xmppPort + ".messenger"
-                        + " to " + keyIn.toString() + ":" + portNameIn + ".messenger"
-                        + " " + pIn.messenger
-                        );
+						+ " to " + keyIn.toString() + ":" + portNameIn + ".messenger"
+						+ " " + pIn.messenger
+						);
 				Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
 				Bundle bundle = new Bundle();
 				bundle.putString("port", xmppPortName);
@@ -1209,11 +1209,20 @@ public class MsgService extends Service {
 					
 					String xmppPortName = "in." + port.otherModuleName + "." + port.otherModuleId + "." + port.otherPortName;
 					ModulePort xmppPort = xmppModule.portsIn.get(xmppPortName);
-					
+					if (xmppPort == null) {
+						xmppPort = new ModulePort();
+						xmppPort.name = xmppPortName;
+						xmppPort.otherModuleDevice = port.otherModuleDevice;
+						xmppPort.otherModuleName = otherKey.mName;
+						xmppPort.otherModuleId = otherKey.mId;
+						xmppPort.otherPortName = port.otherPortName;
+						xmppModule.portsIn.put(xmppPortName, xmppPort);
+						getMessengers(); // TODO: only this new connection
+					}
 					
 					Log.i(TAG, "out port " + port.name + " other module: " + otherKey.toString() + ":" + port.otherPortName);
 					
-					port.messenger = xmppPort.messenger; 
+					port.messenger = xmppPort.messenger;
 					if (port.messenger != null) {
 						Log.i(TAG, "set " + module.key.mName + "[" + module.key.mId + "]:" + port.name + ".messenger"
 								+ " to " + otherKey.mName + "[" + otherKey.mId + "]:" + port.otherPortName + ".messenger"
@@ -1464,8 +1473,15 @@ public class MsgService extends Service {
 				getStatus(m, rootNode);
 			}
 		}
-		// if name+id
-		// if name+id+port
+		
+		else if (portName == null) {
+			
+		}
+		else {
+			
+		}
+		
+		
 		String json = null;
 		try {
 			json = mapper.writeValueAsString(rootNode);
