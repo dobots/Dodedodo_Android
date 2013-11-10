@@ -1,11 +1,16 @@
 package org.dobots.dodedodo;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -19,11 +24,53 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 import org.dobots.dodedodo.R;
+
+class ModuleItem {
+	public String mModuleName;
+	public int mId;
+	public String mPackageName;
+	
+	public ModuleItem(String name, int id, String packageName) {
+		mModuleName = name;
+		mId = id;
+		mPackageName = packageName;
+	}
+	public ModuleItem(String name, int id) {
+		mModuleName = name;
+		mId = id;
+		mPackageName = null;
+	}
+	
+	public String toString() {
+		return mModuleName;
+	}
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ModuleItem i = (ModuleItem)obj;
+		if (mModuleName == null || i.mModuleName == null)
+			return false;
+		if (mId == i.mId && mModuleName.equals(i.mModuleName))
+			return true;
+		return false;
+	}
+	public int hashCode() {
+		return (mModuleName + mId).hashCode();
+	}
+}
 
 public class MainActivity extends Activity {
 	private static final String TAG = "MainActivity";
@@ -38,14 +85,19 @@ public class MainActivity extends Activity {
 	final Messenger mFromMsgService = new Messenger(new IncomingMsgHandler());
 
 //	final Messenger mPortMessenger = new Messenger(new PortMsgHandler());
-	Messenger mPortOutMessenger = null;
+//	Messenger mPortOutMessenger = null;
 	
-	TextView mCallbackText;
-	EditText mEditText;
-	Button mButtonSend;
-	Button mButtonClose;
+	TextView mTextNotifications;
+	TextView mTextHeader;
+//	EditText mEditText;
+//	Button mButtonSend;
+//	Button mButtonClose;
 	Button mButtonLogin;
-
+	ListView mModuleListView;
+//	ArrayList<String> mModuleListStrings;
+//	ArrayAdapter<String> mModuleListAdapter;
+	ArrayAdapter<ModuleItem> mModuleListAdapter;
+	
 
 	// onCreate -> onStart -> onResume
 	// onPause -> onResume
@@ -58,34 +110,64 @@ public class MainActivity extends Activity {
 		Log.i(TAG,"onCreate");
 		setContentView(R.layout.activity_main);
 		
-		mCallbackText = (TextView) findViewById(R.id.messageOutput);
-		mEditText = (EditText) findViewById(R.id.messageInput);
-		mButtonSend = (Button) findViewById(R.id.buttonSend);
-		mButtonClose = (Button) findViewById(R.id.buttonClose);
+		mTextNotifications = (TextView) findViewById(R.id.textNotifications);
+		mTextHeader = (TextView) findViewById(R.id.textHead);
+//		mEditText = (EditText) findViewById(R.id.messageInput);
+//		mButtonSend = (Button) findViewById(R.id.buttonSend);
+//		mButtonClose = (Button) findViewById(R.id.buttonClose);
 		mButtonLogin = (Button) findViewById(R.id.buttonLogin);
+		mModuleListView = (ListView) findViewById(R.id.listView);
 		
-		mCallbackText.setMovementMethod(LinkMovementMethod.getInstance());
+//		TextView textView = new TextView(this);
+//		textView.setText("bla");
+//		mModuleListView.addFooterView(textView);
+//		mModuleListStrings = new ArrayList<String>(0);
+//		mModuleListAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, mModuleListStrings);
 		
-		mEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-		    @Override
-		    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-		        if (actionId == R.id.sendMsg || actionId == EditorInfo.IME_ACTION_SEND) {
-		            sendMessage();
-		            return true;
-		        }
-		        return false;
+//		mModuleListAdapter = new ArrayAdapter<String>(this, R.layout.my_list_item);
+		mModuleListAdapter = new ArrayAdapter<ModuleItem>(this, R.layout.my_list_item);
+		mModuleListView.setAdapter(mModuleListAdapter);
+//		mModuleListView.setOnItemLongClickListener(listener)
+		mModuleListView.setOnItemClickListener(new OnItemClickListener() {
+		    public void onItemClick(AdapterView parent, View v, int position, long id) {
+		        // Do something in response to the click
+		    	ModuleItem m = mModuleListAdapter.getItem(position);
+		    	Log.i(TAG, "clicked position=" + position + " name=" + m.mModuleName + " package=" + m.mPackageName);
+		    	if (m.mPackageName != null) {
+		    		Intent intent = new Intent();
+		    		intent.setAction(Intent.ACTION_MAIN);
+		    		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		    		intent.addCategory(Intent.CATEGORY_DEFAULT);
+		    		intent.setPackage(m.mPackageName);
+		    		if (isCallableActivity(intent))
+		    			startActivity(intent);
+		    	}
 		    }
 		});
+
 		
-		mButtonSend.setOnClickListener(new View.OnClickListener() {
-		    public void onClick(View v) {
-		        sendMessage();
-		    }
-		});
+		mTextNotifications.setMovementMethod(LinkMovementMethod.getInstance());
+		
+//		mEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+//		    @Override
+//		    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+//		        if (actionId == R.id.sendMsg || actionId == EditorInfo.IME_ACTION_SEND) {
+//		            sendMessage();
+//		            return true;
+//		        }
+//		        return false;
+//		    }
+//		});
+		
+//		mButtonSend.setOnClickListener(new View.OnClickListener() {
+//		    public void onClick(View v) {
+//		        sendMessage();
+//		    }
+//		});
 		
 		mButtonLogin.setOnClickListener(new View.OnClickListener() {
 		    public void onClick(View v) {
-		        login();
+		    	loginScreen();
 		    }
 		});
 		
@@ -93,8 +175,7 @@ public class MainActivity extends Activity {
 		String jid = sharedPref.getString("jid", null);
 		String pw = sharedPref.getString("password", null);
 		if (jid == null || pw == null) {
-			Intent intent = new Intent(this, LoginActivity.class);
-			startActivityForResult(intent, LOGIN_REPLY);
+			loginScreen();
 		}
 		
 //		startService(new Intent(this, XMPPService.class));
@@ -143,7 +224,7 @@ public class MainActivity extends Activity {
 			// interface, so get a client-side representation of that from the raw service object.
 			mToMsgService = new Messenger(service);
 //			mCallbackText.setText("Attached to MsgService: " + mToMsgService.toString());
-			mCallbackText.setText("Connected.");
+			mTextNotifications.setText("Connected.");
 
 			Message msg = Message.obtain(null, AimProtocol.MSG_REGISTER);
 			Bundle bundle = new Bundle();
@@ -159,7 +240,7 @@ public class MainActivity extends Activity {
 		public void onServiceDisconnected(ComponentName className) {
 			// This is called when the connection with the service has been unexpectedly disconnected: its process crashed.
 			mToMsgService = null;
-			mCallbackText.setText("Disconnected.");
+			mTextNotifications.setText("Disconnected.");
 
 //	        Toast.makeText(Binding.this, R.string.remote_service_disconnected, Toast.LENGTH_SHORT).show();
 			Log.i(TAG, "Disconnected from MsgService");
@@ -171,19 +252,52 @@ public class MainActivity extends Activity {
 		@Override
 		public void handleMessage(Message msg) {
 			switch (msg.what) {
-			case AimProtocol.MSG_SET_MESSENGER:
-				Log.i(TAG, "set port: " + msg.getData().getString("port") + " to: " + msg.replyTo.toString());
-				if (msg.getData().getString("port").equals("out"))
-					mPortOutMessenger = msg.replyTo;
-				break;
-			case AimProtocol.MSG_NOT_INSTALLED:
+//			case AimProtocol.MSG_SET_MESSENGER:
+//				Log.i(TAG, "set port: " + msg.getData().getString("port") + " to: " + msg.replyTo.toString());
+//				if (msg.getData().getString("port").equals("out"))
+//					mPortOutMessenger = msg.replyTo;
+//				break;
+			case AimProtocol.MSG_NOT_INSTALLED:{
 				Log.i(TAG, "Not installed: " + msg.getData().getString("package"));
 				// From http://stackoverflow.com/questions/2734270/how-do-i-make-links-in-a-textview-clickable
-				String link = new String(mCallbackText.getText() + "<br><a href=\"" + msg.getData().getString("url") + "\">" + msg.getData().getString("module") + "</a>");
+				String link = new String(mTextNotifications.getText() + "<br><a href=\"" + msg.getData().getString("url") + "\">" + msg.getData().getString("module") + "</a>");
 //				mCallbackText.setText(mCallbackText.getText() +"\n" + Html.fromHtml(link)); // Doesn't work :(
-				mCallbackText.setText(Html.fromHtml(link));
+				mTextNotifications.setText(Html.fromHtml(link));
 //				mCallbackText.setMovementMethod(LinkMovementMethod.getInstance());
+				break;
+			}
+			case AimProtocol.MSG_STATUS_NUM_MODULES:{
+				int numRunningModules = msg.getData().getInt("numRunningModules", -1);
+				if (numRunningModules > -1)
+					mTextHeader.setText(numRunningModules + " modules running");
+				break;
+			}
+			case AimProtocol.MSG_STATUS_STARTED_MODULE:{
+//				mModuleListStrings.add(msg.getData().getString("module"));
+//				mModuleListAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, mModuleListStrings);
+//				mModuleListAdapter.add(msg.getData().getString("module"));
+				Bundle b = msg.getData();
+				ModuleItem m = new ModuleItem(b.getString("module"), b.getInt("id"), b.getString("package"));
+				mModuleListAdapter.add(m); // TODO: check if not already added
+//				String packageName = msg.getData().getString("package", null);
+//				mModuleListView.setAdapter(mModuleListAdapter);
+				Log.i(TAG, "Added module: " + b.getString("module"));
+				break;
+			}
+			case AimProtocol.MSG_STATUS_STOPPED_MODULE:{
+//				mModuleListStrings.remove(msg.getData().getString("module"));
+//				mModuleListAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, mModuleListStrings);
 				
+//				mModuleListAdapter.remove(msg.getData().getString("module"));
+				Bundle b = msg.getData();
+//				mModuleListAdapter.
+				ModuleItem m = new ModuleItem(b.getString("module"), b.getInt("id"));
+				mModuleListAdapter.remove(m); // TODO: check if exists?
+//				mModuleListView.setAdapter(mModuleListAdapter);
+				Log.i(TAG, "Removed module: " + b.getString("module"));
+				break;
+			}
+			
 			default:
 				super.handleMessage(msg);
 			}
@@ -210,7 +324,7 @@ public class MainActivity extends Activity {
 		// able to let other applications replace our component.
 		bindService(new Intent(this, MsgService.class), mMsgServiceConnection, Context.BIND_AUTO_CREATE);
 		mMsgServiceIsBound = true;
-		mCallbackText.setText("Connecting..");
+		mTextNotifications.setText("Connecting..");
 	}
 
 	void doUnbindService() {
@@ -227,7 +341,7 @@ public class MainActivity extends Activity {
 			// Detach our existing connection.
 			unbindService(mMsgServiceConnection);
 			mMsgServiceIsBound = false;
-			mCallbackText.setText("Disconnecting..");
+			mTextNotifications.setText("Disconnecting..");
 		}
 	}
 
@@ -244,7 +358,7 @@ public class MainActivity extends Activity {
 //				String jid = sharedPref.getString("jid", "default@default.com");
 //				String pw = sharedPref.getString("password", "default");
 //				Log.i(TAG, "jid=" + jid + " pw=" + pw);
-				login();
+				sendLogin();
 			}
 		}
 	}
@@ -277,27 +391,42 @@ public class MainActivity extends Activity {
 		}
 	}
 
-	public void sendMessage() {
-		// Do something in response to button click
-		String text = mEditText.getText().toString();
-		if (TextUtils.isEmpty(text))
-			return;
-//		Message msg = Message.obtain(null, XMPPService.MSG_SEND);
+//	public void sendMessage() {
+//		// Do something in response to button click
+//		String text = mEditText.getText().toString();
+//		if (TextUtils.isEmpty(text))
+//			return;
+////		Message msg = Message.obtain(null, XMPPService.MSG_SEND);
+////		Bundle bundle = new Bundle();
+////		bundle.putString("body", text);
+////		msg.setData(bundle);
+////		msgSend(msg);
+//		Message msg = Message.obtain(null, AimProtocol.MSG_PORT_DATA);
 //		Bundle bundle = new Bundle();
-//		bundle.putString("body", text);
+//		bundle.putInt("datatype", AimProtocol.DATATYPE_STRING);
+//		bundle.putString("data", text);
 //		msg.setData(bundle);
-//		msgSend(msg);
-		Message msg = Message.obtain(null, AimProtocol.MSG_PORT_DATA);
-		Bundle bundle = new Bundle();
-		bundle.putInt("datatype", AimProtocol.DATATYPE_STRING);
-		bundle.putString("data", text);
-		msg.setData(bundle);
-		msgSend(mPortOutMessenger, msg);
-		mEditText.getText().clear();
+//		msgSend(mPortOutMessenger, msg);
+//		mEditText.getText().clear();
+//	}
+	
+	public void loginScreen() {
+		Intent intent = new Intent(this, LoginActivity.class);
+		startActivityForResult(intent, LOGIN_REPLY);
 	}
 	
-	public void login() {
+	public void sendLogin() {
 		Message msg = Message.obtain(null, AimProtocol.MSG_USER_LOGIN);
 		msgSend(msg);
 	}
+	
+	private boolean isCallableActivity(Intent intent) {
+	    List<ResolveInfo> list = getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
+//	    List<ResolveInfo> list = getPackageManager().queryIntentActivities(intent, 0);
+	    if (list == null)
+	    	return false;
+	    return list.size() > 0;
+	}
 }
+
+

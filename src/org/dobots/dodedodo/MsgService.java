@@ -1,6 +1,5 @@
 package org.dobots.dodedodo;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -11,31 +10,19 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ContainerNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import android.app.ActivityManager;
-//import android.app.Notification;
-//import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
-import android.app.ActivityManager.RunningServiceInfo;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -47,9 +34,7 @@ import android.os.RemoteException;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
-import android.text.TextUtils;
 import android.util.Log;
-import android.widget.Toast;
 
 
 class ModuleKey implements Serializable {
@@ -198,16 +183,16 @@ public class MsgService extends Service {
 
 		loadInstalledModuleMap();
 		if (true) {
-			{
-				String name = new String("UI");
-				InstalledModule m = new InstalledModule();
-				m.name = name;
-				InstalledModulePort p = new InstalledModulePort();
-				p.name = "out";
-				p.dataType = AimProtocol.DATATYPE_STRING;
-				m.portsOut.add(p);
-				mInstalledModules.put(name, m);
-			}
+//			{
+//				String name = new String("UI");
+//				InstalledModule m = new InstalledModule();
+//				m.name = name;
+////				InstalledModulePort p = new InstalledModulePort();
+////				p.name = "out";
+////				p.dataType = AimProtocol.DATATYPE_STRING;
+////				m.portsOut.add(p);
+//				mInstalledModules.put(name, m);
+//			}
 //			{
 //				String name = new String("PictureTransformModule");
 //				InstalledModule m = new InstalledModule();
@@ -381,6 +366,29 @@ public class MsgService extends Service {
 				Module module = mModules.get(key);
 				module.messenger = msg.replyTo;
 				
+				// Send status update to the UI
+				Module ui = mModules.get(new ModuleKey("UI", 0));
+				if (ui != null && ui.messenger != null) {
+					Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_NUM_MODULES);
+					Bundle b = new Bundle();
+					b.putInt("numRunningModules", getNumRunningModules());
+					msgStatus.setData(b);
+					msgSend(ui.messenger, msgStatus);
+				}
+				
+				// Send status update to the UI
+//				Module ui = mModules.get(new ModuleKey("UI", 0));
+				if (ui != null && ui.messenger != null) {
+					Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STARTED_MODULE);
+					Bundle b = new Bundle();
+					b.putString("module", key.mName);
+					b.putInt("id", key.mId);
+					if (mInstalledModules.containsKey(key.mName))
+						b.putString("package", mInstalledModules.get(key.mName).packageName);
+					msgStatus.setData(b);
+					msgSend(ui.messenger, msgStatus);
+				}
+				
 				// Try to connect all outgoing ports
 				// TODO: only (re)connect ports of this module, not of all modules 
 				connectAll();
@@ -405,13 +413,38 @@ public class MsgService extends Service {
 //				mModules.remove(key);
 				
 				// Only set messenger(s) to null
+				ModuleKey key = null;
 				for (Module m : mModules.values()) {
 					if (m.messenger != null && m.messenger.equals(msg.replyTo)) {
 						m.messenger = null;
+						key = m.key;
 						for (ModulePort p : m.portsIn.values()) {
 							p.messenger = null;
 						}
+						// TODO: check p.otherport ?
 					}
+				}
+				
+				
+				// Send status update to the UI
+				Module ui = mModules.get(new ModuleKey("UI", 0));
+				if (ui != null && ui.messenger != null) {
+					Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_NUM_MODULES);
+					Bundle b = new Bundle();
+					b.putInt("numRunningModules", getNumRunningModules());
+					msgStatus.setData(b);
+					msgSend(ui.messenger, msgStatus);
+				}
+				
+				// Send status update to the UI
+//				Module ui = mModules.get(new ModuleKey("UI", 0));
+				if (key != null && ui != null && ui.messenger != null) {
+					Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STOPPED_MODULE);
+					Bundle b = new Bundle();
+					b.putString("module", key.mName);
+					b.putInt("id", key.mId);
+					msgStatus.setData(b);
+					msgSend(ui.messenger, msgStatus);
 				}
 				
 				break;
@@ -843,7 +876,6 @@ public class MsgService extends Service {
 //		String packageName = "org.dobots." + key.mName.toLowerCase(Locale.US);
 		intent.setPackage(installedMod.packageName);
 		
-		boolean activity;
 		
 		if ((installedMod.type == InstalledModule.MODULE_TYPE_UI && !isCallableActivity(intent))
 		 || (installedMod.type == InstalledModule.MODULE_TYPE_BACKGROUND && !isCallableService(intent))) {
@@ -881,13 +913,11 @@ public class MsgService extends Service {
 		else {
 			startService(intent);
 		}
-
 	}
 //	}
 	
 	private boolean isCallableActivity(Intent intent) {
-	    List<ResolveInfo> list = getPackageManager().queryIntentActivities(intent, 
-	        PackageManager.MATCH_DEFAULT_ONLY);
+	    List<ResolveInfo> list = getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
 	    if (list == null)
 	    	return false;
 	    return list.size() > 0;
@@ -903,49 +933,62 @@ public class MsgService extends Service {
 	private void stopModule(ModuleKey key) {
 		// TODO: remove the module from mModules
 		Module m = mModules.get(key);
-		if (m != null)
-		{
-			Message messengerMsg = Message.obtain(null, AimProtocol.MSG_STOP);
-			msgSend(m.messenger, messengerMsg);
-			mModules.remove(key);
+		if (m != null) {
+			if (m.messenger != null) {
+				Message messengerMsg = Message.obtain(null, AimProtocol.MSG_STOP);
+				msgSend(m.messenger, messengerMsg);
+			}
+			mModules.remove(key); // TODO: remove or wait for unregister?
+			
+			// Send status update to the UI
+			Module ui = mModules.get(new ModuleKey("UI", 0));
+			if (ui != null && ui.messenger != null) {
+				Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STOPPED_MODULE);
+				Bundle b = new Bundle();
+				b.putString("module", key.mName);
+				b.putInt("id", key.mId);
+				msgStatus.setData(b);
+				msgSend(ui.messenger, msgStatus);
+			}
+			
 		}
 		else
 			Log.i(TAG, "Cannot stop module " + key + ": not in modules list.");
 	}
 	
-	private void setMessenger(ModuleKey keyIn, String portIn) {
-		Module mIn = mModules.get(keyIn);
-		if (mIn == null) {
-			Log.i(TAG, "module " + keyIn.toString() + " isn't in mModules");
-			return;
-		}
-		ModulePort pIn = mIn.portsIn.get(portIn);
-		if (pIn == null) {
-			Log.i(TAG, "port " + portIn + " isn't in " + keyIn.toString());
-			return;
-		}
-		ModuleKey keyOut = new ModuleKey(pIn.otherModuleName, pIn.otherModuleId);
-		Module mOut = mModules.get(keyOut);
-		if (mOut != null) {
-			ModulePort pOut = mOut.portsOut.get(pIn.otherPortName);
-			if (pOut != null) {
-		
-				pOut.messenger = pIn.messenger; 
-				if (pOut.messenger != null) {
-					Log.i(TAG, "set " + keyOut.toString() + ":" + pIn.otherPortName + ".messenger"
-							+ " to " + keyIn.toString() + ":" + portIn + ".messenger"
-							+ " " + pOut.messenger
-							);
-					Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
-					Bundle bundle = new Bundle();
-					bundle.putString("port", pIn.otherPortName);
-					messengerMsg.setData(bundle);
-					messengerMsg.replyTo = pOut.messenger;
-					msgSend(mOut.messenger, messengerMsg);
-				}
-			}
-		}
-	}
+//	private void setMessenger(ModuleKey keyIn, String portIn) {
+//		Module mIn = mModules.get(keyIn);
+//		if (mIn == null) {
+//			Log.i(TAG, "module " + keyIn.toString() + " isn't in mModules");
+//			return;
+//		}
+//		ModulePort pIn = mIn.portsIn.get(portIn);
+//		if (pIn == null) {
+//			Log.i(TAG, "port " + portIn + " isn't in " + keyIn.toString());
+//			return;
+//		}
+//		ModuleKey keyOut = new ModuleKey(pIn.otherModuleName, pIn.otherModuleId);
+//		Module mOut = mModules.get(keyOut);
+//		if (mOut != null) {
+//			ModulePort pOut = mOut.portsOut.get(pIn.otherPortName);
+//			if (pOut != null) {
+//		
+//				pOut.messenger = pIn.messenger; 
+//				if (pOut.messenger != null) {
+//					Log.i(TAG, "set " + keyOut.toString() + ":" + pIn.otherPortName + ".messenger"
+//							+ " to " + keyIn.toString() + ":" + portIn + ".messenger"
+//							+ " " + pOut.messenger
+//							);
+//					Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
+//					Bundle bundle = new Bundle();
+//					bundle.putString("port", pIn.otherPortName);
+//					messengerMsg.setData(bundle);
+//					messengerMsg.replyTo = pOut.messenger;
+//					msgSend(mOut.messenger, messengerMsg);
+//				}
+//			}
+//		}
+//	}
 	
 	// TODO: get rid of duplicate code
 	private void connect(String deviceOut, ModuleKey keyOut, String portNameOut, String deviceIn, ModuleKey keyIn, String portNameIn) {
@@ -1494,6 +1537,14 @@ public class MsgService extends Service {
 			Log.i(TAG, "IOException: Could not write json: " + e.toString());
 		}
 		return json;
+	}
+	
+	int getNumRunningModules() {
+		int num=0;
+		for (Module m : mModules.values())
+			if (m.messenger != null)
+				num++;
+		return num;
 	}
 	
 //	protected void msgSend(Message msg) {

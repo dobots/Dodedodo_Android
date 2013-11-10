@@ -233,7 +233,7 @@ public class XMPPService extends Service {
 							try {
 								for (int i=6; i<words.length; ++i) {
 									val[i-6] = Integer.parseInt(words[i]);
-								} 
+								}
 							} catch (NumberFormatException e) {
 								Log.i(TAG, "cannot convert " + body + " to int");
 								return;

@@ -18,6 +18,11 @@ public final class AimProtocol {
 	public static final int MSG_NOT_INSTALLED = 15;
 	public static final int MSG_XMPP_MSG = 16;
 	
+	// Messages to/from the UI
+	public static final int MSG_STATUS_NUM_MODULES = 17;
+	public static final int MSG_STATUS_STARTED_MODULE = 18;
+	public static final int MSG_STATUS_STOPPED_MODULE = 19;
+	
 	public static final int DATATYPE_FLOAT = 1;
 	public static final int DATATYPE_FLOAT_ARRAY = 2;
 	public static final int DATATYPE_INT = 3;
