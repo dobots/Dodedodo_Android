@@ -8,6 +8,26 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context=".MainActivity" >
 
+    <!--
+    <ImageView
+        android:id="@+id/imageViewBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:layout_below="@+id/textHead"
+        android:scaleType="fitCenter"
+        android:src="@drawable/background" />
+    -->
+    <ImageView
+        android:id="@+id/imageViewBackground"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:src="@drawable/background" />
+    
+    
     <TextView
         android:id="@+id/textHead"
         android:layout_width="wrap_content"
@@ -53,9 +73,11 @@
         android:id="@+id/listView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
         android:layout_alignLeft="@+id/textNotifications"
         android:layout_below="@+id/textNotifications"
         android:layout_marginTop="26dp" >
+
     </ListView>
 
     <Button
@@ -65,5 +87,6 @@
         android:layout_alignRight="@+id/listView"
         android:layout_alignTop="@+id/textHead"
         android:text="Login" />
+
 
 </RelativeLayout>

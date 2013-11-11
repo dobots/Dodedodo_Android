@@ -378,7 +378,7 @@ public class MsgService extends Service {
 				
 				// Send status update to the UI
 //				Module ui = mModules.get(new ModuleKey("UI", 0));
-				if (ui != null && ui.messenger != null) {
+				if (ui != null && ui.messenger != null && key.mName.endsWith("Module")) {
 					Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STARTED_MODULE);
 					Bundle b = new Bundle();
 					b.putString("module", key.mName);
@@ -438,7 +438,7 @@ public class MsgService extends Service {
 				
 				// Send status update to the UI
 //				Module ui = mModules.get(new ModuleKey("UI", 0));
-				if (key != null && ui != null && ui.messenger != null) {
+				if (key != null && ui != null && ui.messenger != null && key.mName.endsWith("Module")) {
 					Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STOPPED_MODULE);
 					Bundle b = new Bundle();
 					b.putString("module", key.mName);
@@ -942,7 +942,7 @@ public class MsgService extends Service {
 			
 			// Send status update to the UI
 			Module ui = mModules.get(new ModuleKey("UI", 0));
-			if (ui != null && ui.messenger != null) {
+			if (ui != null && ui.messenger != null && key.mName.endsWith("Module")) {
 				Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STOPPED_MODULE);
 				Bundle b = new Bundle();
 				b.putString("module", key.mName);
@@ -1452,36 +1452,36 @@ public class MsgService extends Service {
 	
 	
 
-//	void getPortStatus(ObjectNode n, ModulePort p) {
-//		n.put("name", p.name);
+////	void getPortStatus(ObjectNode n, ModulePort p) {
+////		n.put("name", p.name);
+////	}
+//	String getPortStatus(Module m, ModulePort p) {
+////		ModulePort p = m.portsIn.get(portName);
+////		if (p == null) {
+////			p = m.portsOut.get(portName);
+////			if (p == null)
+////				return "";
+////		}
+//		if (p.messenger != null)
+//			return "connected";
+//		else
+//			return "disconnected";
 //	}
-	String getPortStatus(Module m, ModulePort p) {
-//		ModulePort p = m.portsIn.get(portName);
-//		if (p == null) {
-//			p = m.portsOut.get(portName);
-//			if (p == null)
-//				return "";
-//		}
-		if (p.messenger != null)
-			return "connected";
-		else
-			return "disconnected";
-	}
-	
-	String getModuleStatus(String moduleName, int id) {
-//        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-//        for (RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-//            if (PictureTransformModuleService.class.getName().equals(service.service.getClassName())) {
-//                return "running";
-//            }
-//        }
-		Module m = mModules.get(new ModuleKey(moduleName, id));
-		if (m == null)
-			return "stopped";
-		if (m.messenger == null)
-			return "stopped";
-		return "running";
-	}
+//	
+//	String getModuleStatus(String moduleName, int id) {
+////        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+////        for (RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+////            if (PictureTransformModuleService.class.getName().equals(service.service.getClassName())) {
+////                return "running";
+////            }
+////        }
+//		Module m = mModules.get(new ModuleKey(moduleName, id));
+//		if (m == null)
+//			return "stopped";
+//		if (m.messenger == null)
+//			return "stopped";
+//		return "running";
+//	}
 	
 	void getStatus(ModulePort p, ArrayNode parentNode) {
 		ObjectNode portNode = parentNode.addObject();
@@ -1492,7 +1492,7 @@ public class MsgService extends Service {
 		portNode.put("otherModulePort", p.otherPortName);
 	}
 	
-	void getStatus(Module m, ArrayNode parentNode) {
+	void getStatus(Module m, ArrayNode parentNode, String portName) {
 		if (m.messenger == null)
 			return;
 		ObjectNode moduleNode = parentNode.addObject();
@@ -1500,11 +1500,20 @@ public class MsgService extends Service {
 		moduleNode.put("ID", m.key.mId);
 		moduleNode.put("active", "1"); // TODO: check if active
 		ArrayNode portsNode = moduleNode.putArray("ports");
-		for (ModulePort p : m.portsIn.values()) {
-			getStatus(p, portsNode);
+		if (portName ==null) {
+			for (ModulePort p : m.portsIn.values()) {
+				getStatus(p, portsNode);
+			}
+			for (ModulePort p : m.portsOut.values()) {
+				getStatus(p, portsNode);
+			}
 		}
-		for (ModulePort p : m.portsOut.values()) {
-			getStatus(p, portsNode);
+		else {
+			ModulePort p = m.portsIn.get(portName);
+			if (p == null)
+				p = m.portsOut.get(portName);
+			if (p != null)
+				getStatus(p, portsNode);
 		}
 	}
 	
@@ -1513,15 +1522,14 @@ public class MsgService extends Service {
 		ArrayNode rootNode = mapper.createArrayNode();
 		if (moduleName == null) {		
 			for (Module m : mModules.values()) {
-				getStatus(m, rootNode);
+				getStatus(m, rootNode, null);
 			}
 		}
-		
-		else if (portName == null) {
-			
-		}
 		else {
-			
+			Module m = mModules.get(new ModuleKey(moduleName, id));
+			if (m != null) {
+				getStatus(m, rootNode, portName);
+			}
 		}
 		
 		
@@ -1542,7 +1550,7 @@ public class MsgService extends Service {
 	int getNumRunningModules() {
 		int num=0;
 		for (Module m : mModules.values())
-			if (m.messenger != null)
+			if (m.messenger != null && m.key.mName.endsWith("Module"))
 				num++;
 		return num;
 	}
