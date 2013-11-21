@@ -1,26 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.dobots.dodedodo"
-    android:versionCode="1"
-    android:versionName="1.0"
-    android:sharedUserId="dode.dodo"
-    
-    >
+    android:versionCode="2"
+    android:versionName="0.1.1" >
 
     <uses-sdk
         android:minSdkVersion="8"
         android:targetSdkVersion="17" />
 
     <permission android:name=".XMPPServicePerm" />
-    
+
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- should be optional(!) because it is in the same namespace -->
- <!--    <uses-permission android:name=".XMPPServicePerm"/>
-     -->
-<!--     <uses-permission android:name="XMPPServicePermsdf" />
+<!--     <uses-permission android:name=".XMPPServicePerm"/> -->
+    <!--
+         <uses-permission android:name="XMPPServicePermsdf" />
     <uses-feature android:name="XMPPServicePermsdf"
         android:required="true" />
- -->
+    -->
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
@@ -36,30 +33,26 @@
             </intent-filter>
         </activity>
 
-        <!--         android:permission=".XMPPServicePerm"        
-         -->
-         
+<!--          android:permission=".XMPPServicePerm"         -->
+
         <service
-            android:enabled="true"
             android:name="org.dobots.dodedodo.XMPPService"
-            android:exported="true"
-        
-            />
-        
-        <service
             android:enabled="true"
+            android:exported="true" />
+        <service
             android:name="org.dobots.dodedodo.MsgService"
-            android:exported="true"
-        
-            />
+            android:enabled="true"
+            android:exported="true" />
 
         <activity
             android:name="org.dobots.dodedodo.LoginActivity"
             android:label="@string/title_activity_login"
             android:windowSoftInputMode="adjustResize|stateVisible" >
-            
         </activity>
-        
-     </application>
-    
+        <activity
+            android:name="org.dobots.dodedodo.SettingsActivity"
+            android:label="@string/title_activity_settings" >
+        </activity>
+    </application>
+
 </manifest>

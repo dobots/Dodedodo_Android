@@ -17,11 +17,14 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.preference.PreferenceManager;
 import android.text.Html;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.AdapterView;
@@ -144,7 +147,6 @@ public class MainActivity extends Activity {
 		    	}
 		    }
 		});
-
 		
 		mTextNotifications.setMovementMethod(LinkMovementMethod.getInstance());
 		
@@ -215,6 +217,27 @@ public class MainActivity extends Activity {
 		Log.i(TAG, "onDestroy " + mMsgServiceIsBound);
 		doUnbindService();
 	}
+	
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		// Inflate the menu; this adds items to the action bar if it is present.
+		getMenuInflater().inflate(R.menu.main, menu);
+		return true;
+	}
+	
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		switch (item.getItemId()) {
+		case R.id.action_settings:
+			
+			// Show options activity
+			Intent intent = new Intent(this, SettingsActivity.class);
+			startActivityForResult(intent, SETTINGS_REPLY);
+			return true;
+		default:
+			return super.onOptionsItemSelected(item);
+		}
+	}
 
 
 	private ServiceConnection mMsgServiceConnection = new ServiceConnection() {
@@ -224,7 +247,7 @@ public class MainActivity extends Activity {
 			// interface, so get a client-side representation of that from the raw service object.
 			mToMsgService = new Messenger(service);
 //			mCallbackText.setText("Attached to MsgService: " + mToMsgService.toString());
-			mTextNotifications.setText("Connected.");
+//			mTextNotifications.setText("Connected.");
 
 			Message msg = Message.obtain(null, AimProtocol.MSG_REGISTER);
 			Bundle bundle = new Bundle();
@@ -257,10 +280,16 @@ public class MainActivity extends Activity {
 //				if (msg.getData().getString("port").equals("out"))
 //					mPortOutMessenger = msg.replyTo;
 //				break;
+			case AimProtocol.MSG_XMPP_LOGGED_IN:
+				mTextNotifications.setText("Connected.");
+				break;
+			case AimProtocol.MSG_XMPP_CONNECT_FAIL:
+				mTextNotifications.setText("Failed to connect. Maybe you used the wrong username or password?");
+				break;
 			case AimProtocol.MSG_NOT_INSTALLED:{
 				Log.i(TAG, "Not installed: " + msg.getData().getString("package"));
 				// From http://stackoverflow.com/questions/2734270/how-do-i-make-links-in-a-textview-clickable
-				String link = new String(mTextNotifications.getText() + "<br><a href=\"" + msg.getData().getString("url") + "\">" + msg.getData().getString("module") + "</a>");
+				String link = new String(mTextNotifications.getText() + "<br>Please install <a href=\"" + msg.getData().getString("url") + "\">" + msg.getData().getString("module") + "</a>");
 //				mCallbackText.setText(mCallbackText.getText() +"\n" + Html.fromHtml(link)); // Doesn't work :(
 				mTextNotifications.setText(Html.fromHtml(link));
 //				mCallbackText.setMovementMethod(LinkMovementMethod.getInstance());
@@ -346,19 +375,24 @@ public class MainActivity extends Activity {
 	}
 
 	private static final int LOGIN_REPLY = 0;
+	private static final int SETTINGS_REPLY = 1;
 
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		switch (requestCode) {
-		case LOGIN_REPLY:
-			if (resultCode == RESULT_OK) {
-//				String jid = data.getExtras().getString("jid");
-//				String pw = data.getExtras().getString("password");
-//				SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
-//				String jid = sharedPref.getString("jid", "default@default.com");
-//				String pw = sharedPref.getString("password", "default");
-//				Log.i(TAG, "jid=" + jid + " pw=" + pw);
-				sendLogin();
+			case LOGIN_REPLY:
+				if (resultCode == RESULT_OK) {
+//					SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
+//					String jid = sharedPref.getString("jid", "default@default.com");
+//					String pw = sharedPref.getString("password", "default");
+//					Log.i(TAG, "jid=" + jid + " pw=" + pw);
+					sendLogin();
+				}
+				break;
+			case SETTINGS_REPLY:{
+//				SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
+//				Log.i(TAG, "debug_mode=" + sharedPref.getBoolean("debug_mode", false));
+				break;
 			}
 		}
 	}

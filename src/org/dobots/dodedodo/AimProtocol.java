@@ -9,7 +9,7 @@ public final class AimProtocol {
 //	public static final int MSG_SEND = 6;
 	public static final int MSG_XMPP_LOGIN = 7;
 //	public static final int MSG_ADD_PORT = 8;
-	public static final int MSG_DEL_PORT = 9;
+	public static final int MSG_XMPP_CONNECT_FAIL = 9;
 	public static final int MSG_XMPP_LOGGED_IN = 10;
 	public static final int MSG_XMPP_DISCONNECTED = 11;
 	public static final int MSG_PORT_DATA = 12;
