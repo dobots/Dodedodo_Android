@@ -553,7 +553,7 @@ public class XMPPService extends Service {
 		
 		String username = split[0];
 		String host = split[1];
-		String resource = "android_" + android.os.Build.MODEL + "_" + resourcePostfix;
+		String resource = "android_" + android.os.Build.MODEL.replaceAll(" ", "_") + "_" + resourcePostfix;
 		
 //		Log.i(TAG, "host=" + host + " user=" + username + " pw=" + password + " resource=" + resource);
 		Log.i(TAG, "host=" + host + " user=" + username + " resource=" + resource);
