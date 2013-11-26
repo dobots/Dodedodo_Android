@@ -24,6 +24,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -36,7 +37,6 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.util.Log;
-import android.view.Menu;
 
 
 class ModuleKey implements Serializable {
@@ -151,23 +151,25 @@ class InstalledModule implements Serializable {
 
 public class MsgService extends Service {
 	private static final String TAG = "MsgService";
-
-	Messenger mToXmppMessenger = null;
-	final Messenger mFromXmppMessenger = new Messenger(new XmppMsgHandler());
-	boolean mXmppServiceIsBound;
+	private String mResource;
+	private String mJid;
+	
+	private Messenger mToXmppMessenger = null;
+	private final Messenger mFromXmppMessenger = new Messenger(new XmppMsgHandler());
+	private boolean mXmppServiceIsBound;
 	
 //	Messenger mXmppModuleMessenger = null;
 	
-	final Messenger mFromModuleMessenger = new Messenger(new IncomingMsgHandler());
+	private final Messenger mFromModuleMessenger = new Messenger(new IncomingMsgHandler());
 	
 	
 //	/** For showing and hiding our notification. */
 //	NotificationManager mNM;
 	/** Keeps track of all current registered clients. */
 	
-	HashMap<String, InstalledModule> mInstalledModules = new HashMap<String, InstalledModule>();
+	private HashMap<String, InstalledModule> mInstalledModules = new HashMap<String, InstalledModule>();
 	//ArrayList<Module> mModules = new ArrayList<Module>();
-	HashMap<ModuleKey, Module> mModules = new HashMap<ModuleKey, Module>();
+	private HashMap<ModuleKey, Module> mModules = new HashMap<ModuleKey, Module>();
 	
 
 
@@ -327,7 +329,7 @@ public class MsgService extends Service {
 				}
 				
 				// Try to connect all outgoing ports
-				// TODO: only (re)connect ports of this module, not of all modules 
+				// TODO: only (re)connect out ports of this module, not of all modules 
 				connectAll();
 				break;
 			}
@@ -399,6 +401,8 @@ public class MsgService extends Service {
 					ModuleKey keyOut = new ModuleKey(port.otherModuleName, port.otherModuleId);
 					connect(port.otherModuleDevice, keyOut, port.otherPortName, "local", key, port.name);
 				}
+				else
+					Log.w(TAG, "set messenger - port not found: " + msg.getData().getString("port"));
 				
 //				connectAll();
 				break;
@@ -439,6 +443,11 @@ public class MsgService extends Service {
 		public void handleMessage(Message msg) {
 			switch (msg.what) {
 			case AimProtocol.MSG_XMPP_LOGGED_IN:{
+				// At this point, out jid is known
+				SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
+				mResource = sharedPref.getString("resource", "");
+				mJid = sharedPref.getString("jid", "");
+				
 				// Send status update to the UI
 				Module ui = mModules.get(new ModuleKey("UI", 0));
 				if (ui != null && ui.messenger != null) {
@@ -464,7 +473,9 @@ public class MsgService extends Service {
 				if (!mModules.containsKey(key))
 					break;
 				Module module = mModules.get(key);
-				ModulePort port = module.portsIn.get(msg.getData().getString("port")); 
+				ModulePort port = module.portsIn.get(msg.getData().getString("port"));
+				if (port == null)
+					Log.w(TAG, "set messenger - port not found: " + msg.getData().getString("port"));
 				if (port != null && (port.messenger == null || !port.messenger.equals(msg.replyTo))) {
 					port.messenger = msg.replyTo;
 					Log.i(TAG, "set XMPP[0]:" + port.name + " to: " + port.messenger.toString());
@@ -517,7 +528,9 @@ public class MsgService extends Service {
 						rootNode = mapper.readTree(json);
 						JsonNode androidNode = rootNode.path("android"); // Use .get() instead and check result for == null
 						
-						String moduleName = rootNode.path("name").textValue();
+						// name is in the form: someuser/somerepo/SomeModule
+						String[] moduleNameSplit = rootNode.path("name").textValue().split("/");
+						String moduleName = moduleNameSplit[moduleNameSplit.length-1]; 
 						String git = rootNode.path("git").textValue();
 						String packageName = androidNode.path("package").textValue();
 						String url = androidNode.path("url").textValue();
@@ -593,7 +606,10 @@ public class MsgService extends Service {
 						Log.e(TAG, "cannot convert " + words[3] + " to int");
 						break;
 					}
-					ModuleKey key = new ModuleKey(words[2], id);
+					// name is in the form: someuser/somerepo/SomeModule
+					String[] moduleNameSplit = words[2].split("/");
+					String moduleName = moduleNameSplit[moduleNameSplit.length-1];
+					ModuleKey key = new ModuleKey(moduleName, id);
 					Log.i(TAG, "Starting module: " + key);
 					startModule(key);
 				}
@@ -607,7 +623,10 @@ public class MsgService extends Service {
 						Log.e(TAG, "cannot convert " + words[3] + " to int");
 						break;
 					}
-					ModuleKey key = new ModuleKey(words[2], id);
+					// name is in the form: someuser/somerepo/SomeModule
+					String[] moduleNameSplit = words[2].split("/");
+					String moduleName = moduleNameSplit[moduleNameSplit.length-1];
+					ModuleKey key = new ModuleKey(moduleName, id);
 					Log.i(TAG, "Stopping module: " + key);
 					stopModule(key);
 				}
@@ -623,43 +642,13 @@ public class MsgService extends Service {
 						Log.e(TAG, "cannot convert " + words[4] + " or " + words[8] + " to int");
 						break;
 					}
+					// name is in the form: someuser/somerepo/SomeModule
+					String[] moduleNameSplit = words[3].split("/");
+					String moduleNameOut = moduleNameSplit[moduleNameSplit.length-1];
+					moduleNameSplit = words[7].split("/");
+					String moduleNameIn = moduleNameSplit[moduleNameSplit.length-1];
 					
-					connect(words[2], new ModuleKey(words[3], idOut), words[5], words[6], new ModuleKey(words[7], idIn), words[9]);
-					
-//						// Check if port in exists
-//						ModuleKey otherKey = new ModuleKey(words[5], otherId);
-//						Module otherMod = mModules.get(otherKey);
-//						if (otherMod == null) {
-//							Log.i(TAG, "module " + otherKey.toString() + " isn't in mModules");
-//							break;
-//						}
-//						ModulePort otherPort = otherMod.portsIn.get(words[7]);
-//						if (otherPort == null) {
-//							Log.i(TAG, "port " + words[7] + " isn't in " + otherKey.toString());
-//							break;
-//						}
-//						// Set port in to port out
-//						ModuleKey key = new ModuleKey(words[2], id);
-//						Module m = mModules.get(key);
-//						if (m != null) {
-//							ModulePort p = m.portsOut.get(words[4]);
-//							if (p != null) {
-//								p.otherModuleName = words[5];
-//								p.otherModuleId = otherId;
-//								p.otherPortName = words[7];
-//								
-//								otherPort.otherModuleName = words[2];
-//								otherPort.otherModuleId = id;
-//								otherPort.otherPortName = words[4];
-//								
-//								// TODO: only this new connection
-//								getMessengers();
-//							}
-//							else
-//								Log.i(TAG, "port " + words[4] + " isn't in " + key.toString());
-//						}
-//						else
-//							Log.i(TAG, "module " + key.toString() + " isn't in mModules");
+					connect(words[2], new ModuleKey(moduleNameOut, idOut), words[5], words[6], new ModuleKey(moduleNameIn, idIn), words[9]);
 				}
 				else if (words[1].equals("uninstall")) {
 					
@@ -774,8 +763,10 @@ public class MsgService extends Service {
 	}
 	
 	private void msgSend(Messenger messenger, Message msg) {
-//		if (messenger == null || msg == null)
-//			return;
+		if (messenger == null || msg == null) {
+			Log.e(TAG, "msgSend() - messenger or msg is null");
+			return;
+		}
 		Log.i(TAG, "msgSend to: " + messenger.toString());
 		try {
 			//msg.replyTo = mMessenger;
@@ -828,6 +819,7 @@ public class MsgService extends Service {
 		intent.setAction(Intent.ACTION_RUN);
 		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 		intent.addCategory(Intent.CATEGORY_DEFAULT);
+		intent.putExtra("id", key.mId);
 //		String packageName = "org.dobots." + key.mName.toLowerCase(Locale.US);
 		intent.setPackage(installedMod.packageName);
 		
@@ -951,6 +943,10 @@ public class MsgService extends Service {
 			Log.i(TAG, "connect() failed: one or more arguments are null");
 			return;
 		}
+		if (deviceOut.equals(mJid + "/" + mResource))
+			deviceOut = "local";
+		if (deviceIn.equals(mJid + "/" + mResource))
+			deviceIn = "local";
 		
 		Log.i(TAG, "connect() " + deviceOut + "/" + keyOut.toString() + ":" + portNameOut + " " + deviceIn + "/" + keyIn.toString() + ":" + portNameIn);
 		
@@ -1481,6 +1477,7 @@ public class MsgService extends Service {
 			}
 		}
 		else {
+//			id = 0; // TODO: should be able to have multiple ids
 			Module m = mModules.get(new ModuleKey(moduleName, id));
 			if (m != null) {
 				getStatus(m, rootNode, portName);

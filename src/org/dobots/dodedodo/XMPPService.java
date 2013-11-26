@@ -1,37 +1,18 @@
 package org.dobots.dodedodo;
 
-import org.dobots.dodedodo.MsgService;
-import java.io.File;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 
-import org.jivesoftware.smack.Chat;
-import org.jivesoftware.smack.ChatManagerListener;
-import org.jivesoftware.smack.ChatManager;
-import org.jivesoftware.smack.Connection;
 import org.jivesoftware.smack.ConnectionConfiguration;
-import org.jivesoftware.smack.PacketCollector;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.Roster;
-import org.jivesoftware.smack.RosterEntry;
-import org.jivesoftware.smack.SmackAndroid;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
-import org.jivesoftware.smack.MessageListener;
 import org.jivesoftware.smack.filter.*;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
-import org.jivesoftware.smackx.ServiceDiscoveryManager;
 import org.jivesoftware.smackx.filetransfer.FileTransferManager;
-import org.jivesoftware.smackx.filetransfer.FileTransferNegotiator;
-import org.jivesoftware.smackx.filetransfer.OutgoingFileTransfer;
-import org.jivesoftware.smackx.filetransfer.FileTransfer.Status;
-
-//import android.app.Notification;
-//import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -46,13 +27,14 @@ import android.os.Messenger;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
 import android.util.Log;
-import android.widget.Toast;
 
 public class XMPPService extends Service {
 	private static final String TAG = "XMPPService";
 	private static final int PORT = 5222;
+	private static final String ADMIN_JID = "hal9000@dobots.customers.luna.net";
 	
-	private String mJid;
+	private String mBareJid;
+	private String mResource;
 
 	/** Target we publish for clients to send messages to IncomingHandler. */
 	final Messenger mMessenger = new Messenger(new MsgHandler());
@@ -154,10 +136,15 @@ public class XMPPService extends Service {
 				if (!mSharedPref.getBoolean("debug_mode", false)) {
 					// Filter packet based on added buddies		
 					String from = org.jivesoftware.smack.util.StringUtils.parseBareAddress(packet.getFrom());
-					if (!from.equals(mJid) && mXmppConnection.getRoster().getEntry(from) == null) {
+					if (!from.equals(mBareJid) && mXmppConnection.getRoster().getEntry(from) == null) {
 						Log.w(TAG, "User is not added: " + packet.getFrom());
 						return;
 					}
+				}
+				
+				if (!packet.getTo().endsWith("/" + mResource) && !packet.getTo().equals(mBareJid)) {
+					Log.w(TAG, "to=" + packet.getTo() + " does not end with: /" + mResource);
+					return;
 				}
 				
 				Message message = (Message) packet;
@@ -270,21 +257,31 @@ public class XMPPService extends Service {
 		};
 		
 
-//		mXmppSubListener = new PacketListener() {
-//			public void processPacket(Packet packet) {
-//				Log.i(TAG, "Received presence: " + packet.toXML());
-//				Presence presence = (Presence) packet;
-//				if (presence.getType().equals(Presence.Type.subscribe)) {
-//					String jid = org.jivesoftware.smack.util.StringUtils.parseBareAddress(presence.getFrom());
-//					try {
-//						mXmppConnection.getRoster().createEntry(jid, jid, null);
-//						Log.i(TAG, "Created roster entry: " + jid);
-//					} catch (XMPPException e) {
-//						Log.e(TAG, "Error in roster entry creation: " + e);
-//					}
-//				}
-//			}
-//		};
+		mXmppSubListener = new PacketListener() {
+			public void processPacket(Packet packet) {
+				Log.i(TAG, "Received presence: " + packet.toXML());
+				Presence presence = (Presence) packet;
+				if (presence.getType().equals(Presence.Type.subscribe)) {
+					String jid = org.jivesoftware.smack.util.StringUtils.parseBareAddress(presence.getFrom());
+					if (!jid.equals(ADMIN_JID))
+						return;
+					
+					try {
+						mXmppConnection.getRoster().createEntry(jid, jid, null);
+						Log.i(TAG, "Created roster entry: " + jid);
+					} catch (XMPPException e) {
+						Log.e(TAG, "Error in roster entry creation: " + e);
+					}
+					
+					
+					
+					Presence presenceReply = new Presence(Presence.Type.subscribed);
+					presenceReply.setTo(presence.getFrom());
+					mXmppConnection.sendPacket(presenceReply);
+					
+				}
+			}
+		};
 
 	}
 
@@ -470,7 +467,8 @@ public class XMPPService extends Service {
 					break;
 				}
 				
-				String jid = new String(mJid + "/" + pIn.mDevice);
+				//String jid = new String(mBareJid + "/" + pIn.mDevice);
+				String jid = new String(pIn.mDevice);
 				Log.d(TAG, "Sending to " + jid + ": " + xmppMsg);
 				if (!xmppSend(jid, xmppMsg.toString())) {
 //					android.os.Message reply = android.os.Message.obtain(null, XMPPService.MSG_NOT_LOGGED_IN);
@@ -494,6 +492,10 @@ public class XMPPService extends Service {
 	
 	
 	private void msgSend(Messenger messenger, android.os.Message msg) {
+		if (messenger == null || msg == null) {
+			Log.e(TAG, "msgSend() - messenger or msg is null");
+			return;
+		}
 		try {
 			messenger.send(msg);
 		} catch (RemoteException e) {
@@ -532,31 +534,34 @@ public class XMPPService extends Service {
 		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 		String jid = sharedPref.getString("jid", "");
 		String password = sharedPref.getString("password", "");
-		int resourcePostfix = sharedPref.getInt("resourcePostfix", 0); 
+		
+		String resource = sharedPref.getString("resource", "");
+//		int resourcePostfix = sharedPref.getInt("resourcePostfix", 0); 
 		
 //		Log.i(TAG, "jid=" + jid + " pw=" + password);
 		
 		if (TextUtils.isEmpty(jid) || TextUtils.isEmpty(password))
 			return false;
 		
-		if (resourcePostfix == 0) {
+		if (TextUtils.isEmpty(resource)) {
 			Random rand = new Random(); // Seeded by current time
-			resourcePostfix = rand.nextInt(999) + 1; // number from 1 to 999
+			int postfix = rand.nextInt(999) + 1; // number from 1 to 999
+			resource = "android_" + android.os.Build.MODEL.replaceAll(" ", "_") + "_" + postfix; 
 			SharedPreferences.Editor editor = sharedPref.edit();
-			editor.putInt("resourcePostfix", resourcePostfix);
+			editor.putString("resource", resource);
 			editor.commit();
 		}
-		
+				
 		String[] split = jid.split("@");
 		if (split.length != 2)
 			return false;
 		
 		String username = split[0];
 		String host = split[1];
-		String resource = "android_" + android.os.Build.MODEL.replaceAll(" ", "_") + "_" + resourcePostfix;
+		mResource = resource;
 		
 //		Log.i(TAG, "host=" + host + " user=" + username + " pw=" + password + " resource=" + resource);
-		Log.i(TAG, "host=" + host + " user=" + username + " resource=" + resource);
+		Log.i(TAG, "host=" + host + " user=" + username + " resource=" + mResource);
 		
 		ConnectionConfiguration connConfig = new ConnectionConfiguration(host, PORT);
 		connConfig.setSASLAuthenticationEnabled(true);
@@ -566,20 +571,27 @@ public class XMPPService extends Service {
 		connConfig.setRosterLoadedAtLogin(true);
 		//connConfig.setKeystorePath(keystorePath)
 		
+		/**
+		If you want compressed XMPP streams you have to add
+		[jzlib-1.0.7](http://www.jcraft.com/jzlib/) to your project. Note that
+		every version higher then 1.0.7 wont work.
+		More Info: https://github.com/Flowdalic/smack/issues/12
+		*/
+		
 //		connConfig.setDebuggerEnabled(true);
 		mXmppConnection = new XMPPConnection(connConfig);
 
 		// Reject all presence subscription requests.
 		Roster roster = mXmppConnection.getRoster();
-//		roster.setSubscriptionMode(Roster.SubscriptionMode.manual);
-		roster.setSubscriptionMode(Roster.SubscriptionMode.reject_all);
+		roster.setSubscriptionMode(Roster.SubscriptionMode.manual);
+//		roster.setSubscriptionMode(Roster.SubscriptionMode.reject_all);
 		
 //		mXmppConnection.DEBUG_ENABLED = true;
 
 		try {
 			mXmppConnection.connect();
 			if (!mXmppConnection.isAuthenticated())
-				mXmppConnection.login(username, password, resource);
+				mXmppConnection.login(username, password, mResource);
 		}
 		catch (final XMPPException e) {
 			Log.e(TAG, "Could not connect to Xmpp server.", e);
@@ -594,7 +606,8 @@ public class XMPPService extends Service {
 			msgSend(mMsgService, failMsg);
 			return false;
 		}
-		
+
+/*
 		// We need this to get the file transfer work
 		ServiceDiscoveryManager sdm = ServiceDiscoveryManager.getInstanceFor(mXmppConnection);
 		if (sdm == null)
@@ -604,22 +617,8 @@ public class XMPPService extends Service {
 				
 		mFileTransferManager = new FileTransferManager(mXmppConnection);
 		FileTransferNegotiator.setServiceEnabled(mXmppConnection, true);
-		
+*/		
 
-		Log.i(TAG, "Connected to the XMPP server!");
-		mJid = jid;
-
-//		// Remove all roster entries
-//		for (RosterEntry entry : roster.getEntries()) {
-//			Log.i(TAG, "roster: " + entry);
-//			try {
-//				roster.removeEntry(entry);
-//			} catch (XMPPException e) {
-//				Log.e(TAG, " couldn't remove entry from roster: " + e);
-//			}
-//		}
-		
-		
 //		OutgoingFileTransfer transfer = mFileTransferManager.createOutgoingFileTransfer(mJid);
 //		try {
 //			transfer.sendFile(new File("/mnt/sdcard/DCIM/2011-11-27 02.11.06.jpg"), "test");
@@ -646,10 +645,23 @@ public class XMPPService extends Service {
 //		} else {
 //			Log.i(TAG,"Success");
 //		}
-		
 
-		PacketFilter fromMeFilter = new FromMatchesFilter(mJid);
-		PacketFilter fromDodedodoFilter = new FromMatchesFilter("hal9000@dobots.customers.luna.net");
+		
+		Log.i(TAG, "Connected to the XMPP server!");
+		mBareJid = jid;
+
+//		// Remove all roster entries
+//		for (RosterEntry entry : roster.getEntries()) {
+//			Log.i(TAG, "roster: " + entry);
+//			try {
+//				roster.removeEntry(entry);
+//			} catch (XMPPException e) {
+//				Log.e(TAG, " couldn't remove entry from roster: " + e);
+//			}
+//		}
+
+		PacketFilter fromMeFilter = new FromMatchesFilter(mBareJid);
+		PacketFilter fromDodedodoFilter = new FromMatchesFilter(ADMIN_JID);
 		PacketFilter fromFilter = new OrFilter(fromMeFilter, fromDodedodoFilter);
 //		PacketFilter msgFilter = new PacketTypeFilter(Message.class);
 		PacketFilter msgFilter = new MessageTypeFilter(Message.Type.chat);
@@ -659,8 +671,19 @@ public class XMPPService extends Service {
 		mXmppConnection.addPacketListener(mXmppMsgListener, msgFilter);
 //		mXmppConnection.addPacketListener(mXmppMsgListener, new AndFilter(msgFilter, fromFilter));
 		
-//		PacketFilter subFilter = new PacketTypeFilter(Presence.class);
-//		mXmppConnection.addPacketListener(mXmppSubListener, subFilter);
+		PacketFilter subFilter = new PacketTypeFilter(Presence.class);
+		mXmppConnection.addPacketListener(mXmppSubListener, subFilter);
+		
+		try {
+			roster.createEntry(ADMIN_JID, ADMIN_JID, null);
+			Presence presence = new Presence(Presence.Type.subscribe);
+			presence.setTo(ADMIN_JID);
+	
+			Log.i(TAG, presence.toXML());
+			mXmppConnection.sendPacket(presence);
+		} catch (XMPPException e) {
+			Log.e(TAG, "xmppexception: " + e);
+		}
 		
 		android.os.Message loginMsg = android.os.Message.obtain(null, AimProtocol.MSG_XMPP_LOGGED_IN);
 		msgSend(mMsgService, loginMsg);

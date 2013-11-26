@@ -77,7 +77,7 @@ public class LoginActivity extends Activity {
 		if (pw != null) {
 			mPassword = pw;
 			mPasswordView.setText(mPassword);
-		}		
+		}
 		mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
 					@Override
 					public boolean onEditorAction(TextView textView, int id,
@@ -148,9 +148,11 @@ public class LoginActivity extends Activity {
 			focusView = mEmailView;
 			cancel = true;
 		} else if (!mEmail.contains("@")) {
-			mEmailView.setError(getString(R.string.error_invalid_email));
-			focusView = mEmailView;
-			cancel = true;
+			mEmail += "@dobots.customers.luna.net";
+			mEmailView.setText(mEmail);
+//			mEmailView.setError(getString(R.string.error_invalid_email));
+//			focusView = mEmailView;
+//			cancel = true;
 		}
 
 		if (cancel) {
