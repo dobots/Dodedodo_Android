@@ -28,8 +28,8 @@ public final class AimProtocol {
 	public static final int DATATYPE_INT = 3;
 	public static final int DATATYPE_INT_ARRAY = 4;
 	public static final int DATATYPE_STRING = 5;
-	public static final int DATATYPE_IMAGE = 6;
-	public static final int DATATYPE_BINARY = 7;
+//	public static final int DATATYPE_IMAGE = 6;
+//	public static final int DATATYPE_BINARY = 7;
 	
 	public static int getDataType(String s) {
 		int res = 0;
@@ -43,10 +43,10 @@ public final class AimProtocol {
 			res = DATATYPE_INT_ARRAY;
 		else if (s.equals("string"))
 			res = DATATYPE_STRING;
-		else if (s.equals("image"))
-			res = DATATYPE_IMAGE;
-		else if (s.equals("binary"))
-			res = DATATYPE_BINARY;
+//		else if (s.equals("image"))
+//			res = DATATYPE_IMAGE;
+//		else if (s.equals("binary"))
+//			res = DATATYPE_BINARY;
 		return res;
 	}
 	
@@ -63,10 +63,50 @@ public final class AimProtocol {
 			res = new String("intarray"); break;
 		case DATATYPE_STRING:
 			res = new String("string"); break;
-		case DATATYPE_IMAGE:
-			res = new String("image"); break;
-		case DATATYPE_BINARY:
-			res = new String("binary"); break;
+//		case DATATYPE_IMAGE:
+//			res = new String("image"); break;
+//		case DATATYPE_BINARY:
+//			res = new String("binary"); break;
+		}
+		return res;
+	}
+	
+	public static int getXmppDataType(String s) {
+		int res = 0;
+		if (s.equals("float"))
+			res = DATATYPE_FLOAT_ARRAY;
+		else if (s.equals("float"))
+			res = DATATYPE_FLOAT_ARRAY;
+		else if (s.equals("int"))
+			res = DATATYPE_INT_ARRAY;
+		else if (s.equals("int"))
+			res = DATATYPE_INT_ARRAY;
+		else if (s.equals("string"))
+			res = DATATYPE_STRING;
+//		else if (s.equals("image"))
+//			res = DATATYPE_IMAGE;
+//		else if (s.equals("binary"))
+//			res = DATATYPE_BINARY;
+		return res;
+	}
+	
+	public static String getXmppDataType(int t) {
+		String res = null;
+		switch (t) {
+		case DATATYPE_FLOAT:
+			res = new String("float"); break;
+		case DATATYPE_FLOAT_ARRAY:
+			res = new String("float"); break;
+		case DATATYPE_INT:
+			res = new String("int"); break;
+		case DATATYPE_INT_ARRAY:
+			res = new String("int"); break;
+		case DATATYPE_STRING:
+			res = new String("string"); break;
+//		case DATATYPE_IMAGE:
+//			res = new String("image"); break;
+//		case DATATYPE_BINARY:
+//			res = new String("binary"); break;
 		}
 		return res;
 	}

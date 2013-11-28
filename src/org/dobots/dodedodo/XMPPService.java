@@ -37,7 +37,7 @@ public class XMPPService extends Service {
 	private String mResource;
 
 	/** Target we publish for clients to send messages to IncomingHandler. */
-	final Messenger mMessenger = new Messenger(new MsgHandler());
+	final Messenger mMessenger = new Messenger(new MsgServiceHandler());
 	//final Messenger mModuleMessenger = new Messenger(new ModuleMsgHandler());
 	
 	private SharedPreferences mSharedPref;
@@ -106,6 +106,7 @@ public class XMPPService extends Service {
 	private XMPPConnection mXmppConnection;
 	private PacketListener mXmppMsgListener;
 	private PacketListener mXmppSubListener;
+//	private PacketListener mXmppAllListener;
 //	private PacketCollector mPacketCollector;
 	private FileTransferManager mFileTransferManager;
 
@@ -126,6 +127,11 @@ public class XMPPService extends Service {
 //		// Display a notification about us starting.
 //        showNotification();
 
+//		mXmppAllListener = new PacketListener() {
+//			public void processPacket(Packet packet) {
+//				Log.d(TAG, "Received msg: " + packet.toXML());
+//			}
+//		};
 		
 		mXmppMsgListener = new PacketListener() {
 			public void processPacket(Packet packet) {
@@ -312,7 +318,7 @@ public class XMPPService extends Service {
 	}
 
 	/** Handler of incoming messages from msg service. */
-	class MsgHandler extends Handler {
+	class MsgServiceHandler extends Handler {
 		@Override
 		public void handleMessage(android.os.Message msg) {
 			switch (msg.what) {
@@ -371,7 +377,7 @@ public class XMPPService extends Service {
 				Messenger messenger = new Messenger(new ModuleMsgHandler(key));
 				PortIn portIn = new PortIn(deviceOut, messenger, moduleOut, idOut, portOut);
 				mPortsIn.put(key, portIn);
-				Log.i(TAG, "get messenger " + key);
+				Log.i(TAG, "get messenger " + key + " to=" + deviceOut + "/" + moduleOut + "[" + idOut + "]:" + portOut);
 //				Log.i(TAG, "get messenger " + key.moduleName + "[" + key.moduleId + "]:" + key.portName + " " + messenger.toString());
 				
 				android.os.Message messengerMsg = android.os.Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
@@ -420,7 +426,8 @@ public class XMPPService extends Service {
 				// AIM data int/float module id port nDims sizeDim1 sizeDim2 .. <data>
 				// AIM data string module id port <data>
 				StringBuffer xmppMsg = new StringBuffer("AIM data ");
-				xmppMsg.append(AimProtocol.getDataType(msg.getData().getInt("datatype")));
+				
+				xmppMsg.append(AimProtocol.getXmppDataType(msg.getData().getInt("datatype")));
 				xmppMsg.append(" ");
 				//String[] portNameParts = portName.split("."); // "in.module.id.portname" 
 				//xmppMsg += portNameParts[1] + " " + portNameParts[2] + " " + portNameParts[3];
@@ -461,13 +468,13 @@ public class XMPPService extends Service {
 					xmppMsg.append(" ");
 					xmppMsg.append(msg.getData().getString("data"));
 					break;
-				case AimProtocol.DATATYPE_IMAGE:
-					break;
-				case AimProtocol.DATATYPE_BINARY:
-					break;
+//				case AimProtocol.DATATYPE_IMAGE:
+//					break;
+//				case AimProtocol.DATATYPE_BINARY:
+//					break;
 				}
 				
-				//String jid = new String(mBareJid + "/" + pIn.mDevice);
+//				String jid = new String(mBareJid + "/" + pIn.mDevice);
 				String jid = new String(pIn.mDevice);
 				Log.d(TAG, "Sending to " + jid + ": " + xmppMsg);
 				if (!xmppSend(jid, xmppMsg.toString())) {
@@ -477,6 +484,7 @@ public class XMPPService extends Service {
 //					}
 //					msgSend(msg.replyTo, reply);
 					// Do nothing
+					Log.w(TAG, "could not send xmpp msg!");
 				}
 				
 				
@@ -522,6 +530,7 @@ public class XMPPService extends Service {
 			return false;
 		
 		Message xmppMsg = new Message();
+		xmppMsg.setType(Message.Type.chat);
 		xmppMsg.setTo(jid);
 		xmppMsg.setBody(body);
 		mXmppConnection.sendPacket(xmppMsg);
@@ -673,6 +682,8 @@ public class XMPPService extends Service {
 		
 		PacketFilter subFilter = new PacketTypeFilter(Presence.class);
 		mXmppConnection.addPacketListener(mXmppSubListener, subFilter);
+		
+//		mXmppConnection.addPacketListener(mXmppAllListener, null);
 		
 		try {
 			roster.createEntry(ADMIN_JID, ADMIN_JID, null);
