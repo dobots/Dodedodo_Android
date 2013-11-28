@@ -1,6 +1,5 @@
 package org.dobots.dodedodo;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import android.app.Activity;
@@ -17,24 +16,18 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
-import android.preference.PreferenceManager;
 import android.text.Html;
-import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.inputmethod.EditorInfo;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 import org.dobots.dodedodo.R;
 
 class ModuleItem {
@@ -228,12 +221,18 @@ public class MainActivity extends Activity {
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
-		case R.id.action_settings:
-			
+		case R.id.action_settings:{
 			// Show options activity
 			Intent intent = new Intent(this, SettingsActivity.class);
 			startActivityForResult(intent, SETTINGS_REPLY);
 			return true;
+		}
+		case R.id.action_info:{
+			// Show info activity
+			Intent intent = new Intent(this, InfoActivity.class);
+			startActivity(intent);
+			return true;
+		}
 		default:
 			return super.onOptionsItemSelected(item);
 		}

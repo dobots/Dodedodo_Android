@@ -12,7 +12,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- should be optional(!) because it is in the same namespace -->
-<!--     <uses-permission android:name=".XMPPServicePerm"/> -->
+    <!-- <uses-permission android:name=".XMPPServicePerm"/> -->
     <!--
          <uses-permission android:name="XMPPServicePermsdf" />
     <uses-feature android:name="XMPPServicePermsdf"
@@ -33,7 +33,7 @@
             </intent-filter>
         </activity>
 
-<!--          android:permission=".XMPPServicePerm"         -->
+        <!-- android:permission=".XMPPServicePerm" -->
 
         <service
             android:name="org.dobots.dodedodo.XMPPService"
@@ -52,6 +52,10 @@
         <activity
             android:name="org.dobots.dodedodo.SettingsActivity"
             android:label="@string/title_activity_settings" >
+        </activity>
+        <activity
+            android:name="org.dobots.dodedodo.InfoActivity"
+            android:label="@string/title_activity_info" >
         </activity>
     </application>
 
