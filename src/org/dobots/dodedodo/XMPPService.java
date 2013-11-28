@@ -368,16 +368,16 @@ public class XMPPService extends Service {
 //				key.moduleId = msg.getData().getInt("id");
 //				key.portName = msg.getData().getString("port");
 				
-				String deviceOut = msg.getData().getString("otherDevice");
-				String moduleOut = msg.getData().getString("otherModule");
-				int idOut = msg.getData().getInt("otherID");
-				String portOut = msg.getData().getString("otherPort");
+				String deviceIn = msg.getData().getString("otherDevice");
+				String moduleIn = msg.getData().getString("otherModule");
+				int idIn = msg.getData().getInt("otherID");
+				String portIn = msg.getData().getString("otherPort");
 				
 				String key = msg.getData().getString("port");
 				Messenger messenger = new Messenger(new ModuleMsgHandler(key));
-				PortIn portIn = new PortIn(deviceOut, messenger, moduleOut, idOut, portOut);
-				mPortsIn.put(key, portIn);
-				Log.i(TAG, "get messenger " + key + " to=" + deviceOut + "/" + moduleOut + "[" + idOut + "]:" + portOut);
+				PortIn pIn = new PortIn(deviceIn, messenger, moduleIn, idIn, portIn);
+				mPortsIn.put(key, pIn);
+				Log.i(TAG, "get messenger " + key + " to=" + deviceIn + "/" + moduleIn + "[" + idIn + "]:" + portIn);
 //				Log.i(TAG, "get messenger " + key.moduleName + "[" + key.moduleId + "]:" + key.portName + " " + messenger.toString());
 				
 				android.os.Message messengerMsg = android.os.Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);

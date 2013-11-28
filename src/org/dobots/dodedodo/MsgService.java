@@ -295,7 +295,7 @@ public class MsgService extends Service {
 				break;
 			}
 			case AimProtocol.MSG_UNREGISTER:{
-				Log.i(TAG, "module removed");
+				Log.i(TAG, "module unregistered");
 
 //				// Removal while iterating
 //				Iterator<Entry<ModuleKey, Module>> it = mModules.entrySet().iterator();
@@ -357,13 +357,13 @@ public class MsgService extends Service {
 				ModulePort port = module.portsIn.get(msg.getData().getString("port"));
 				if (port != null) {
 					port.messenger = msg.replyTo;
-					Log.i(TAG, "set " + key.toString() + ":" + port.name + " to: " + port.messenger.toString());
+					Log.i(TAG, "msg_set_messenger: set " + key.toString() + ":" + port.name + " to: " + port.messenger.toString());
 					
 					ModuleKey keyOut = new ModuleKey(port.otherModuleName, port.otherModuleId);
 					connect(port.otherModuleDevice, keyOut, port.otherPortName, "local", key, port.name);
 				}
 				else
-					Log.w(TAG, "set messenger - port not found: " + msg.getData().getString("port"));
+					Log.w(TAG, "msg_set_messenger: - port not found: " + msg.getData().getString("port"));
 				
 //				connectAll();
 				break;
@@ -442,7 +442,14 @@ public class MsgService extends Service {
 					Log.i(TAG, "set XMPP[0]:" + port.name + " to: " + port.messenger.toString());
 					
 					ModuleKey keyOut = new ModuleKey(port.otherModuleName, port.otherModuleId);
-					connect(port.otherModuleDevice, keyOut, port.otherPortName, "local", key, port.name);
+					
+					String deviceIn = msg.getData().getString("otherDevice");
+					String moduleIn = msg.getData().getString("otherModule");
+					int idIn = msg.getData().getInt("otherID");
+					String portIn = msg.getData().getString("otherPort");
+					ModuleKey keyIn = new ModuleKey(moduleIn, idIn);
+					connect(port.otherModuleDevice, keyOut, port.otherPortName, deviceIn, keyIn, portIn);
+//					connect(port.otherModuleDevice, keyOut, port.otherPortName, "local", key, port.name);
 				}
 				
 //				ModuleKey key = new ModuleKey();
@@ -489,7 +496,7 @@ public class MsgService extends Service {
 						rootNode = mapper.readTree(json);
 						JsonNode androidNode = rootNode.path("android"); // Use .get() instead and check result for == null
 						
-						// name is in the form: someuser/somerepo/SomeModule
+						// name can be in the form: someuser/somerepo/SomeModule
 						String[] moduleNameSplit = rootNode.path("name").textValue().split("/");
 						String moduleName = moduleNameSplit[moduleNameSplit.length-1]; 
 						String git = rootNode.path("git").textValue();
@@ -567,7 +574,7 @@ public class MsgService extends Service {
 						Log.e(TAG, "cannot convert " + words[3] + " to int");
 						break;
 					}
-					// name is in the form: someuser/somerepo/SomeModule
+					// name can be in the form: someuser/somerepo/SomeModule
 					String[] moduleNameSplit = words[2].split("/");
 					String moduleName = moduleNameSplit[moduleNameSplit.length-1];
 					ModuleKey key = new ModuleKey(moduleName, id);
@@ -584,7 +591,7 @@ public class MsgService extends Service {
 						Log.e(TAG, "cannot convert " + words[3] + " to int");
 						break;
 					}
-					// name is in the form: someuser/somerepo/SomeModule
+					// name can be in the form: someuser/somerepo/SomeModule
 					String[] moduleNameSplit = words[2].split("/");
 					String moduleName = moduleNameSplit[moduleNameSplit.length-1];
 					ModuleKey key = new ModuleKey(moduleName, id);
@@ -603,7 +610,7 @@ public class MsgService extends Service {
 						Log.e(TAG, "cannot convert " + words[4] + " or " + words[8] + " to int");
 						break;
 					}
-					// name is in the form: someuser/somerepo/SomeModule
+					// name can be in the form: someuser/somerepo/SomeModule
 					String[] moduleNameSplit = words[3].split("/");
 					String moduleNameOut = moduleNameSplit[moduleNameSplit.length-1];
 					moduleNameSplit = words[7].split("/");
@@ -846,7 +853,7 @@ public class MsgService extends Service {
 				Message messengerMsg = Message.obtain(null, AimProtocol.MSG_STOP);
 				msgSend(m.messenger, messengerMsg);
 			}
-			mModules.remove(key); // TODO: remove or wait for unregister?
+			mModules.remove(key); // TODO: remove or wait for unregister? <-- stop should be different than unregister!
 			
 			// Send status update to the UI
 			Module ui = mModules.get(new ModuleKey("UI", 0));
@@ -1099,7 +1106,7 @@ public class MsgService extends Service {
 					continue;
 				
 				// Case: out != local, in = local
-				if (module.key.mName.equals("XMPP")) {
+				if (module.key.mName.equals("XMPP")) { // Can't happen? As XMPP.messenger is always null
 					otherKey.mName = port.otherModuleName;
 					otherKey.mId = port.otherModuleId;
 					Log.i(TAG, "out port " + port.name + " other module: " + otherKey.toString() + ":" + port.otherPortName);
@@ -1197,7 +1204,7 @@ public class MsgService extends Service {
 					}
 				}
 
-			} // end port loop
+			} // end port out loop
 		} // end module loop
 	}
 	
