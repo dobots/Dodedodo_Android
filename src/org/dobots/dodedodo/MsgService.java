@@ -155,6 +155,7 @@ public class MsgService extends Service {
 	private static final String TAG = "MsgService";
 	private String mResource;
 	private String mJid;
+	private int mXmppConnectionStatus; // 0=connecting, -1=fail, 1=connected
 	
 	private Messenger mToXmppMessenger = null;
 	private final Messenger mFromXmppMessenger = new Messenger(new XmppMsgHandler());
@@ -187,6 +188,7 @@ public class MsgService extends Service {
 	public void onCreate() {
 		super.onCreate();
 
+		mXmppConnectionStatus = 0;
 		loadInstalledModuleMap();
 
 		for (String n : mInstalledModules.keySet())
@@ -266,27 +268,13 @@ public class MsgService extends Service {
 				Module module = mModules.get(key);
 				module.messenger = msg.replyTo;
 				
-				// Send status update to the UI
-				Module ui = mModules.get(new ModuleKey("UI", 0));
-				if (ui != null && ui.messenger != null) {
-					Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_NUM_MODULES);
-					Bundle b = new Bundle();
-					b.putInt("numRunningModules", getNumRunningModules());
-					msgStatus.setData(b);
-					msgSend(ui.messenger, msgStatus);
+				if (key.mName == "UI") {
+					syncUI();
 				}
-				
-				// Send status update to the UI
-//				Module ui = mModules.get(new ModuleKey("UI", 0));
-				if (ui != null && ui.messenger != null && key.mName.endsWith("Module")) {
-					Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STARTED_MODULE);
-					Bundle b = new Bundle();
-					b.putString("module", key.mName);
-					b.putInt("id", key.mId);
-					if (mInstalledModules.containsKey(key.mName))
-						b.putString("package", mInstalledModules.get(key.mName).packageName);
-					msgStatus.setData(b);
-					msgSend(ui.messenger, msgStatus);
+				else {
+					// Send status update to the UI
+					updateUiNumModules();
+					updateUiModule(key);
 				}
 				
 				// Try to connect all outgoing ports
@@ -327,25 +315,8 @@ public class MsgService extends Service {
 				
 				
 				// Send status update to the UI
-				Module ui = mModules.get(new ModuleKey("UI", 0));
-				if (ui != null && ui.messenger != null) {
-					Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_NUM_MODULES);
-					Bundle b = new Bundle();
-					b.putInt("numRunningModules", getNumRunningModules());
-					msgStatus.setData(b);
-					msgSend(ui.messenger, msgStatus);
-				}
-				
-				// Send status update to the UI
-//				Module ui = mModules.get(new ModuleKey("UI", 0));
-				if (key != null && ui != null && ui.messenger != null && key.mName.endsWith("Module")) {
-					Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STOPPED_MODULE);
-					Bundle b = new Bundle();
-					b.putString("module", key.mName);
-					b.putInt("id", key.mId);
-					msgStatus.setData(b);
-					msgSend(ui.messenger, msgStatus);
-				}
+				updateUiNumModules();
+				updateUiModule(key);
 				
 				break;
 			}
@@ -408,22 +379,21 @@ public class MsgService extends Service {
 				SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 				mResource = sharedPref.getString("resource", "");
 				mJid = sharedPref.getString("jid", "");
+				mXmppConnectionStatus = 1;
 				
 				// Send status update to the UI
-				Module ui = mModules.get(new ModuleKey("UI", 0));
-				if (ui != null && ui.messenger != null) {
-					Message msgStatus = Message.obtain(null, AimProtocol.MSG_XMPP_LOGGED_IN);
-					msgSend(ui.messenger, msgStatus);
-				}
+				Log.d(TAG, "logged in, call updateUiConnectionStatus()");
+				updateUiConnectionStatus();
+				
 				break;
 			}
 			case AimProtocol.MSG_XMPP_CONNECT_FAIL:{
+				mXmppConnectionStatus = -1;
+				
 				// Send status update to the UI
-				Module ui = mModules.get(new ModuleKey("UI", 0));
-				if (ui != null && ui.messenger != null) {
-					Message msgStatus = Message.obtain(null, AimProtocol.MSG_XMPP_CONNECT_FAIL);
-					msgSend(ui.messenger, msgStatus);
-				}
+				Log.d(TAG, "connect fail, call updateUiConnectionStatus()");
+				updateUiConnectionStatus();
+				
 				break;
 			}
 			case AimProtocol.MSG_SET_MESSENGER:{
@@ -599,7 +569,7 @@ public class MsgService extends Service {
 					stopModule(key);
 				}
 				else if (words[1].equals("connect")) {
-					// 0AIM 1connect 2device 3module 4id 5port 6device 7module 8id 9port
+					// 0AIM 1connect 2jid 3module 4id 5port 6jid 7module 8id 9port
 					if (words.length != 10)
 						break;
 					int idOut, idIn;
@@ -856,15 +826,8 @@ public class MsgService extends Service {
 			mModules.remove(key); // TODO: remove or wait for unregister? <-- stop should be different than unregister!
 			
 			// Send status update to the UI
-			Module ui = mModules.get(new ModuleKey("UI", 0));
-			if (ui != null && ui.messenger != null && key.mName.endsWith("Module")) {
-				Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STOPPED_MODULE);
-				Bundle b = new Bundle();
-				b.putString("module", key.mName);
-				b.putInt("id", key.mId);
-				msgStatus.setData(b);
-				msgSend(ui.messenger, msgStatus);
-			}
+			updateUiNumModules();
+			updateUiModule(key);
 			
 		}
 		else
@@ -1220,6 +1183,9 @@ public class MsgService extends Service {
 			if (port.otherModuleName == null || port.otherModuleId < 0 || port.otherPortName == null || port.otherModuleDevice == null)
 				continue;
 			
+			if (port.messenger != null) // No need to get messenger again, right?
+				continue;
+			
 			ModuleKey outKey = new ModuleKey(port.otherModuleName, port.otherModuleId);
 			Module outModule = mModules.get(outKey);
 			if (outModule == null)
@@ -1474,6 +1440,90 @@ public class MsgService extends Service {
 				num++;
 		return num;
 	}
+	
+	
+	private void updateUiConnectionStatus() {
+		Module ui = mModules.get(new ModuleKey("UI", 0));
+		if (ui != null && ui.messenger != null)
+			updateUiConnectionStatus(ui.messenger);
+	}
+	
+	private void updateUiConnectionStatus(Messenger messenger) {
+		Message msgStatus;
+		if (mXmppConnectionStatus == 0) {
+			// Connecting..
+		}
+		else if (mXmppConnectionStatus < 0) {
+			msgStatus = Message.obtain(null, AimProtocol.MSG_XMPP_CONNECT_FAIL);
+			msgSend(messenger, msgStatus);
+//			Log.d(TAG, "UI update: connect fail");
+		}
+		else {
+			msgStatus = Message.obtain(null, AimProtocol.MSG_XMPP_LOGGED_IN);
+			msgSend(messenger, msgStatus);
+//			Log.d(TAG, "UI update: connected");
+		}
+	}
+	
+	private void updateUiNumModules() {
+		Module ui = mModules.get(new ModuleKey("UI", 0));
+		if (ui != null && ui.messenger != null)
+			updateUiNumModules(ui.messenger);
+	}
+	
+	private void updateUiNumModules(Messenger messenger) {
+		Message msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_NUM_MODULES);
+		Bundle b = new Bundle();
+		b.putInt("numRunningModules", getNumRunningModules());
+		msgStatus.setData(b);
+		msgSend(messenger, msgStatus);
+//		Log.d(TAG, "UI update: num modules");
+	}
+	
+	private void updateUiModule(ModuleKey key) {
+		Module ui = mModules.get(new ModuleKey("UI", 0));
+		if (ui != null && ui.messenger != null)
+			updateUiModule(ui.messenger, key);
+	}
+	
+	private void updateUiModule(Messenger messenger, ModuleKey key) {
+		if (!key.mName.endsWith("Module"))
+			return;
+		
+		Module m = mModules.get(key);
+		Message msgStatus;
+		if (m != null && m.messenger != null)
+			msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STARTED_MODULE);
+		else
+			msgStatus = Message.obtain(null, AimProtocol.MSG_STATUS_STOPPED_MODULE);
+		Bundle b = new Bundle();
+		b.putString("module", key.mName);
+		b.putInt("id", key.mId);
+		if (mInstalledModules.containsKey(key.mName))
+			b.putString("package", mInstalledModules.get(key.mName).packageName);
+		msgStatus.setData(b);
+		msgSend(messenger, msgStatus);
+//		Log.d(TAG, "UI update: " + key.mName);
+	}
+	
+	private void syncUI() {
+		Module ui = mModules.get(new ModuleKey("UI", 0));
+		if (ui == null || ui.messenger == null)
+			return;
+
+		if (mJid != null) {
+			Message msgStatus = Message.obtain(null, AimProtocol.MSG_XMPP_LOGGED_IN);
+			msgSend(ui.messenger, msgStatus);
+		}
+		
+		updateUiNumModules(ui.messenger);
+		
+		for (ModuleKey k : mModules.keySet()) {
+			updateUiModule(ui.messenger, k);
+		}
+	}
+	
+	
 	
 	private void stopService() {
 		Intent intent = new Intent();

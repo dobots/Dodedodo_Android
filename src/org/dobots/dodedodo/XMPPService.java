@@ -374,9 +374,16 @@ public class XMPPService extends Service {
 				String portIn = msg.getData().getString("otherPort");
 				
 				String key = msg.getData().getString("port");
-				Messenger messenger = new Messenger(new ModuleMsgHandler(key));
-				PortIn pIn = new PortIn(deviceIn, messenger, moduleIn, idIn, portIn);
-				mPortsIn.put(key, pIn);
+				Messenger messenger;
+				PortIn pIn = mPortsIn.get(key);
+				if (pIn != null) {
+					messenger = pIn.mMessenger;
+				}
+				else {
+					messenger = new Messenger(new ModuleMsgHandler(key));
+					pIn = new PortIn(deviceIn, messenger, moduleIn, idIn, portIn);
+					mPortsIn.put(key, pIn);
+				}
 				Log.i(TAG, "get messenger " + key + " to=" + deviceIn + "/" + moduleIn + "[" + idIn + "]:" + portIn);
 //				Log.i(TAG, "get messenger " + key.moduleName + "[" + key.moduleId + "]:" + key.portName + " " + messenger.toString());
 				
