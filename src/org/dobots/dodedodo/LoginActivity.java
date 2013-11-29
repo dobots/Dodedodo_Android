@@ -144,16 +144,21 @@ public class LoginActivity extends Activity {
 		}
 
 		// Check for a valid email address.
+		
 		if (TextUtils.isEmpty(mEmail)) {
 			mEmailView.setError(getString(R.string.error_field_required));
 			focusView = mEmailView;
 			cancel = true;
-		} else if (!mEmail.contains("@")) {
+		}
+		else if (!mEmail.matches("^[a-zA-Z][a-zA-Z0-9]*$")) {
+			mEmailView.setError(getString(R.string.error_invalid_email));
+			focusView = mEmailView;
+			cancel = true;
+		}
+		else if (!mEmail.contains("@")) {
+			mEmail = mEmail.toLowerCase();
 			mEmail += "@dobots.customers.luna.net";
 			mEmailView.setText(mEmail);
-//			mEmailView.setError(getString(R.string.error_invalid_email));
-//			focusView = mEmailView;
-//			cancel = true;
 		}
 
 		if (cancel) {

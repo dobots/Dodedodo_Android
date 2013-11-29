@@ -316,7 +316,8 @@ public class MsgService extends Service {
 				
 				// Send status update to the UI
 				updateUiNumModules();
-				updateUiModule(key);
+				if (key != null)
+					updateUiModule(key);
 				
 				break;
 			}
@@ -552,6 +553,12 @@ public class MsgService extends Service {
 					startModule(key);
 				}
 				else if (words[1].equals("stop")) {
+					if (words[2].equals("all")) {
+						stopAllModules();
+						break;
+					}
+					
+					
 					if (words.length != 4)
 						break;
 					int id;
@@ -828,10 +835,19 @@ public class MsgService extends Service {
 			// Send status update to the UI
 			updateUiNumModules();
 			updateUiModule(key);
-			
 		}
 		else
 			Log.i(TAG, "Cannot stop module " + key + ": not in modules list.");
+	}
+	
+	private void stopAllModules() {
+		List<ModuleKey> toStop = new ArrayList<ModuleKey>();
+		for (ModuleKey k : mModules.keySet()) {
+			if (k.mName.endsWith("Module"))
+				toStop.add(k);
+		}
+		for (ModuleKey k : toStop)
+			stopModule(k);
 	}
 	
 //	private void setMessenger(ModuleKey keyIn, String portIn) {
