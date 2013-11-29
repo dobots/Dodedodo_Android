@@ -1,5 +1,6 @@
 package org.dobots.dodedodo;
 
+import java.util.HashMap;
 import java.util.List;
 
 import android.app.Activity;
@@ -30,6 +31,41 @@ import android.widget.ListView;
 import android.widget.TextView;
 import org.dobots.dodedodo.R;
 
+class UnInstalledModule {
+	public String mModuleName;
+	public String mInstallUrl;
+	public String mPackageName;
+	
+	public UnInstalledModule(String name, String url, String packageName) {
+		mModuleName = name;
+		mInstallUrl = url;
+		mPackageName = packageName;
+	}
+	
+	public String toString() {
+		return mModuleName;
+	}
+	
+//	public boolean equals(Object obj) {
+//		if (this == obj)
+//			return true;
+//		if (obj == null)
+//			return false;
+//		if (getClass() != obj.getClass())
+//			return false;
+//		UnInstalledModule i = (UnInstalledModule)obj;
+//		if (mModuleName == null || i.mModuleName == null)
+//			return false;
+//		if (mModuleName.equals(i.mModuleName))
+//			return true;
+//		return false;
+//	}
+//	
+//	public int hashCode() {
+//		return mModuleName.hashCode();
+//	}
+}
+
 class ModuleItem {
 	public String mModuleName;
 	public int mId;
@@ -46,6 +82,7 @@ class ModuleItem {
 		mPackageName = null;
 	}
 	
+	// TODO: Add ID once supported
 	public String toString() {
 		return mModuleName;
 	}
@@ -83,8 +120,8 @@ public class MainActivity extends Activity {
 //	final Messenger mPortMessenger = new Messenger(new PortMsgHandler());
 //	Messenger mPortOutMessenger = null;
 	
-	TextView mTextNotifications;
-	TextView mTextHeader;
+	TextView mTextNotificationsView;
+	TextView mTextHeaderView;
 //	EditText mEditText;
 //	Button mButtonSend;
 //	Button mButtonClose;
@@ -93,7 +130,7 @@ public class MainActivity extends Activity {
 //	ArrayList<String> mModuleListStrings;
 //	ArrayAdapter<String> mModuleListAdapter;
 	ArrayAdapter<ModuleItem> mModuleListAdapter;
-	
+	private HashMap<String, UnInstalledModule> mUnInstalledModules = new HashMap<String, UnInstalledModule>();
 
 	// onCreate -> onStart -> onResume
 	// onPause -> onResume
@@ -106,8 +143,8 @@ public class MainActivity extends Activity {
 		Log.i(TAG,"onCreate");
 		setContentView(R.layout.activity_main);
 		
-		mTextNotifications = (TextView) findViewById(R.id.textNotifications);
-		mTextHeader = (TextView) findViewById(R.id.textHead);
+		mTextNotificationsView = (TextView) findViewById(R.id.textNotifications);
+		mTextHeaderView = (TextView) findViewById(R.id.textHead);
 //		mEditText = (EditText) findViewById(R.id.messageInput);
 //		mButtonSend = (Button) findViewById(R.id.buttonSend);
 //		mButtonClose = (Button) findViewById(R.id.buttonClose);
@@ -141,7 +178,7 @@ public class MainActivity extends Activity {
 		    }
 		});
 		
-		mTextNotifications.setMovementMethod(LinkMovementMethod.getInstance());
+		mTextNotificationsView.setMovementMethod(LinkMovementMethod.getInstance());
 		
 //		mEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
 //		    @Override
@@ -262,7 +299,7 @@ public class MainActivity extends Activity {
 		public void onServiceDisconnected(ComponentName className) {
 			// This is called when the connection with the service has been unexpectedly disconnected: its process crashed.
 			mToMsgService = null;
-			mTextNotifications.setText("Disconnected.");
+			mTextNotificationsView.setText("Disconnected.");
 
 //	        Toast.makeText(Binding.this, R.string.remote_service_disconnected, Toast.LENGTH_SHORT).show();
 			Log.i(TAG, "Disconnected from MsgService");
@@ -280,24 +317,27 @@ public class MainActivity extends Activity {
 //					mPortOutMessenger = msg.replyTo;
 //				break;
 			case AimProtocol.MSG_XMPP_LOGGED_IN:
-				mTextNotifications.setText("Connected.");
+				mTextNotificationsView.setText("Connected.");
 				break;
 			case AimProtocol.MSG_XMPP_CONNECT_FAIL:
-				mTextNotifications.setText("Failed to connect. Maybe you used the wrong username or password?");
+				mTextNotificationsView.setText("Failed to connect. Maybe you used the wrong username or password?");
 				break;
 			case AimProtocol.MSG_NOT_INSTALLED:{
 				Log.i(TAG, "Not installed: " + msg.getData().getString("package"));
-				// From http://stackoverflow.com/questions/2734270/how-do-i-make-links-in-a-textview-clickable
-				String link = new String(mTextNotifications.getText() + "<br>Please install <a href=\"" + msg.getData().getString("url") + "\">" + msg.getData().getString("module") + "</a>");
-//				mCallbackText.setText(mCallbackText.getText() +"\n" + Html.fromHtml(link)); // Doesn't work :(
-				mTextNotifications.setText(Html.fromHtml(link));
-//				mCallbackText.setMovementMethod(LinkMovementMethod.getInstance());
+				
+				String name = msg.getData().getString("module");
+				String url = msg.getData().getString("url");
+				String packageName = msg.getData().getString("package");
+				
+				mUnInstalledModules.put(name, new UnInstalledModule(name, url, packageName));
+				updateNotificationsText();
+
 				break;
 			}
 			case AimProtocol.MSG_STATUS_NUM_MODULES:{
 				int numRunningModules = msg.getData().getInt("numRunningModules", -1);
 				if (numRunningModules > -1)
-					mTextHeader.setText(numRunningModules + " modules running");
+					mTextHeaderView.setText(numRunningModules + " modules running");
 				break;
 			}
 			case AimProtocol.MSG_STATUS_STARTED_MODULE:{
@@ -352,7 +392,7 @@ public class MainActivity extends Activity {
 		// able to let other applications replace our component.
 		bindService(new Intent(this, MsgService.class), mMsgServiceConnection, Context.BIND_AUTO_CREATE);
 		mMsgServiceIsBound = true;
-		mTextNotifications.setText("Connecting..");
+		mTextNotificationsView.setText("Connecting..");
 	}
 
 	void doUnbindService() {
@@ -369,7 +409,7 @@ public class MainActivity extends Activity {
 			// Detach our existing connection.
 			unbindService(mMsgServiceConnection);
 			mMsgServiceIsBound = false;
-			mTextNotifications.setText("Disconnecting..");
+			mTextNotificationsView.setText("Disconnecting..");
 		}
 	}
 
@@ -442,6 +482,17 @@ public class MainActivity extends Activity {
 //		msgSend(mPortOutMessenger, msg);
 //		mEditText.getText().clear();
 //	}
+	
+	public void updateNotificationsText() {
+		// From http://stackoverflow.com/questions/2734270/how-do-i-make-links-in-a-textview-clickable
+		
+		String link = new String(mTextNotificationsView.getText().toString());
+		for (UnInstalledModule m : mUnInstalledModules.values()) {
+			link += "<br>Please install <a href=\"" + m.mInstallUrl + "\">" + m.mModuleName + "</a>";
+		}
+		mTextNotificationsView.setText(Html.fromHtml(link));
+//		mCallbackText.setMovementMethod(LinkMovementMethod.getInstance());
+	}
 	
 	public void loginScreen() {
 		Intent intent = new Intent(this, LoginActivity.class);
