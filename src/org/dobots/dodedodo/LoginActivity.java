@@ -65,11 +65,12 @@ public class LoginActivity extends Activity {
 		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 		String jid = sharedPref.getString("jid", null);
 		String pw = sharedPref.getString("password", null);
+		String username = jid.split("@")[0]; 
 		
-		if (jid == null)
+		if (username == null)
 			mEmail = getIntent().getStringExtra(EXTRA_EMAIL);
 		else
-			mEmail = jid;
+			mEmail = username;
 		mEmailView = (EditText) findViewById(R.id.email);
 		mEmailView.setText(mEmail);
 
@@ -155,9 +156,9 @@ public class LoginActivity extends Activity {
 			focusView = mEmailView;
 			cancel = true;
 		}
-		else if (!mEmail.contains("@")) {
+		else {
 			mEmail = mEmail.toLowerCase();
-			mEmail += "@dobots.customers.luna.net";
+//			mEmail += "@dobots.customers.luna.net";
 			mEmailView.setText(mEmail);
 		}
 
@@ -169,7 +170,7 @@ public class LoginActivity extends Activity {
 			SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 //			SharedPreferences sharedPref = getPreferences(Context.MODE_PRIVATE);
 			SharedPreferences.Editor editor = sharedPref.edit();
-			editor.putString("jid", mEmail);
+			editor.putString("jid", mEmail + "@dobots.customers.luna.net");
 			editor.putString("password", mPassword);
 //			editor.apply();
 			editor.commit();

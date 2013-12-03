@@ -339,6 +339,10 @@ public class XMPPService extends Service {
 				break;
 			case AimProtocol.MSG_XMPP_LOGIN:
 				Log.i(TAG, "login");
+				
+				if (mXmppConnection != null)
+					mXmppConnection.disconnect();
+				
 				new Thread(new Runnable() {
 					@Override
 					public void run() {
