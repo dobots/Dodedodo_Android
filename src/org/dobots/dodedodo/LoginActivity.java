@@ -65,7 +65,10 @@ public class LoginActivity extends Activity {
 		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 		String jid = sharedPref.getString("jid", null);
 		String pw = sharedPref.getString("password", null);
-		String username = jid.split("@")[0]; 
+		String username = null;
+		if (jid != null)
+			username = jid.split("@")[0];
+		
 		
 		if (username == null)
 			mEmail = getIntent().getStringExtra(EXTRA_EMAIL);
