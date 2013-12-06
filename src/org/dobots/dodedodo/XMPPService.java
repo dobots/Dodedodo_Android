@@ -31,7 +31,7 @@ import android.util.Log;
 public class XMPPService extends Service {
 	private static final String TAG = "XMPPService";
 	private static final int PORT = 5222;
-	private static final String ADMIN_JID = "hal9000@dobots.customers.luna.net";
+	public static final String ADMIN_JID = "hal9000@dobots.customers.luna.net";
 	
 	private String mBareJid;
 	private String mResource;

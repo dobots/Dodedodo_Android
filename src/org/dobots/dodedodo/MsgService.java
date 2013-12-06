@@ -131,6 +131,7 @@ class InstalledModule implements Serializable {
 	public static final int MODULE_TYPE_BACKGROUND = 1;
 	
 	public String name; // Handy but double info
+	public int version;
 	public String git;
 	public String packageName;
 	public String installUrl;
@@ -257,8 +258,34 @@ public class MsgService extends Service {
 		public void handleMessage(Message msg) {
 			switch (msg.what) {
 			case AimProtocol.MSG_REGISTER:{
-				ModuleKey key = new ModuleKey(msg.getData().getString("module"), msg.getData().getInt("id"));
-				Log.i(TAG, "Registering module: " + key.toString() + " " + msg.replyTo);
+				String packageName = msg.getData().getString("package");
+				String moduleName = null;
+				String moduleNameReported = msg.getData().getString("module");
+				
+				if (packageName.equals(getPackageName())) {
+					moduleName = moduleNameReported;
+				}
+				else {
+					for (InstalledModule m : mInstalledModules.values()) {
+						if (m.packageName.equals(packageName)) {
+							moduleName = m.name;
+							break;
+						}
+					}
+					if (moduleName == null) {
+						Log.e(TAG, "Uninstalled module tries to register: " + packageName + " " + moduleNameReported);
+						break;
+					}
+
+					// Extra check, can be removed?
+					if (!moduleName.equals(moduleNameReported) && !moduleName.endsWith("/" + moduleNameReported)) {
+						Log.e(TAG, "module registers with name: " + moduleNameReported + ", while name of " + packageName + " is: " + moduleName);
+						break;
+					}
+				}
+				
+				ModuleKey key = new ModuleKey(moduleName, msg.getData().getInt("id"));
+				Log.i(TAG, "Registering module: " + packageName + " " + key.toString() + " " + msg.replyTo);
 
 				if (!mModules.containsKey(key)) {
 					Log.i(TAG, "not registering module: not in mModules.");
@@ -272,6 +299,7 @@ public class MsgService extends Service {
 					syncUI();
 				}
 				else {
+					sendCmdStatusStart(key, true);
 					// Send status update to the UI
 					updateUiNumModules();
 					updateUiModule(key);
@@ -458,6 +486,8 @@ public class MsgService extends Service {
 			case AimProtocol.MSG_XMPP_MSG:{
 				Log.i(TAG, "XMPP command: " + msg.getData().getString("body"));
 				String[] words = msg.getData().getString("body").split(" ");
+				if (words.length < 2)
+					break;
 
 				if (words[1].equals("deploy")) {	
 					ObjectMapper mapper = new ObjectMapper();
@@ -468,8 +498,9 @@ public class MsgService extends Service {
 						JsonNode androidNode = rootNode.path("android"); // Use .get() instead and check result for == null
 						
 						// name can be in the form: someuser/somerepo/SomeModule
-						String[] moduleNameSplit = rootNode.path("name").textValue().split("/");
-						String moduleName = moduleNameSplit[moduleNameSplit.length-1]; 
+//						String[] moduleNameSplit = rootNode.path("name").textValue().split("/");
+//						String moduleName = moduleNameSplit[moduleNameSplit.length-1];
+						String moduleName = rootNode.path("name").textValue();
 						String git = rootNode.path("git").textValue();
 						String packageName = androidNode.path("package").textValue();
 						String url = androidNode.path("url").textValue();
@@ -513,8 +544,11 @@ public class MsgService extends Service {
 							ApplicationInfo appInfo = packetMngr.getApplicationInfo(packageName, 0);
 							Log.i(TAG, "Application " + packageName + " found: " + appInfo.name);
 							mInstalledModules.put(m.name, m);
+							sendCmdStatusDeploy(m, true);
+							
 						} catch(NameNotFoundException e) {
 							Log.i(TAG, "Application not found: " + e);
+							sendCmdStatusDeploy(m, false);
 							Module ui = mModules.get(new ModuleKey("UI", 0));
 							if (ui != null && ui.messenger != null) {
 								Message msgInstall = Message.obtain(null, AimProtocol.MSG_NOT_INSTALLED);
@@ -536,7 +570,7 @@ public class MsgService extends Service {
 					
 				}
 				else if (words[1].equals("start")) {
-					if (words.length != 4)
+					if (words.length < 4)
 						break;
 					int id;
 					try {
@@ -546,20 +580,21 @@ public class MsgService extends Service {
 						break;
 					}
 					// name can be in the form: someuser/somerepo/SomeModule
-					String[] moduleNameSplit = words[2].split("/");
-					String moduleName = moduleNameSplit[moduleNameSplit.length-1];
+//					String[] moduleNameSplit = words[2].split("/");
+//					String moduleName = moduleNameSplit[moduleNameSplit.length-1];
+					String moduleName = words[2];
 					ModuleKey key = new ModuleKey(moduleName, id);
 					Log.i(TAG, "Starting module: " + key);
 					startModule(key);
 				}
 				else if (words[1].equals("stop")) {
-					if (words[2].equals("all")) {
+					if (words.length == 3 && words[2].equals("all")) {
 						stopAllModules();
 						break;
 					}
 					
 					
-					if (words.length != 4)
+					if (words.length < 4)
 						break;
 					int id;
 					try {
@@ -569,15 +604,16 @@ public class MsgService extends Service {
 						break;
 					}
 					// name can be in the form: someuser/somerepo/SomeModule
-					String[] moduleNameSplit = words[2].split("/");
-					String moduleName = moduleNameSplit[moduleNameSplit.length-1];
+//					String[] moduleNameSplit = words[2].split("/");
+//					String moduleName = moduleNameSplit[moduleNameSplit.length-1];
+					String moduleName = words[2];
 					ModuleKey key = new ModuleKey(moduleName, id);
 					Log.i(TAG, "Stopping module: " + key);
 					stopModule(key);
 				}
 				else if (words[1].equals("connect")) {
 					// 0AIM 1connect 2jid 3module 4id 5port 6jid 7module 8id 9port
-					if (words.length != 10)
+					if (words.length < 10)
 						break;
 					int idOut, idIn;
 					try {
@@ -588,15 +624,26 @@ public class MsgService extends Service {
 						break;
 					}
 					// name can be in the form: someuser/somerepo/SomeModule
-					String[] moduleNameSplit = words[3].split("/");
-					String moduleNameOut = moduleNameSplit[moduleNameSplit.length-1];
-					moduleNameSplit = words[7].split("/");
-					String moduleNameIn = moduleNameSplit[moduleNameSplit.length-1];
+//					String[] moduleNameSplit = words[3].split("/");
+//					String moduleNameOut = moduleNameSplit[moduleNameSplit.length-1];
+					String moduleNameOut = words[3];
+//					moduleNameSplit = words[7].split("/");
+//					String moduleNameIn = moduleNameSplit[moduleNameSplit.length-1];
+					String moduleNameIn = words[7];
 					
 					connect(words[2], new ModuleKey(moduleNameOut, idOut), words[5], words[6], new ModuleKey(moduleNameIn, idIn), words[9]);
 				}
 				else if (words[1].equals("uninstall")) {
+					if (words.length < 3)
+						break;
 					
+					String name = words[2];
+					InstalledModule m = mInstalledModules.get(name);
+					if (m == null) {
+						m = new InstalledModule();
+						m.name = name;
+					}
+					sendCmdStatusUninstall(m, false);
 				}
 				else if (words[1].equals("list")) {
 //						ObjectMapper mapper = new ObjectMapper();						
@@ -749,6 +796,7 @@ public class MsgService extends Service {
 
 		InstalledModule installedMod = mInstalledModules.get(key.mName);
 		if (installedMod == null) {
+			sendCmdStatusStart(key, false);
 			Log.i(TAG, "Not installed: " + key.toString());
 			return;
 		}
@@ -771,6 +819,7 @@ public class MsgService extends Service {
 		
 		if ((installedMod.type == InstalledModule.MODULE_TYPE_UI && !isCallableActivity(intent))
 		 || (installedMod.type == InstalledModule.MODULE_TYPE_BACKGROUND && !isCallableService(intent))) {
+			sendCmdStatusStart(key, false);
 			Log.i(TAG, "Cannot start module " + key.toString() + ". No such package: " + installedMod.packageName);
 			return;
 		}
@@ -832,6 +881,7 @@ public class MsgService extends Service {
 			}
 			mModules.remove(key); // TODO: remove or wait for unregister? <-- stop should be different than unregister!
 			
+			sendCmdStatusStop(key, true);
 			// Send status update to the UI
 			updateUiNumModules();
 			updateUiModule(key);
@@ -1449,6 +1499,57 @@ public class MsgService extends Service {
 		return json;
 	}
 	
+	
+	private void sendCmdStatusDeploy(InstalledModule m, boolean success) {
+		sendCmdStatus("deploy", success, m.name + " " + m.version);
+	}
+	
+	private void sendCmdStatusUninstall(InstalledModule m, boolean success) {
+		sendCmdStatus("uninstall", success, m.name);
+	}
+	
+	private void sendCmdStatusStart(ModuleKey k, boolean success) {
+		sendCmdStatus("start", success, k.mName + " " + k.mId);
+	}
+	
+	private void sendCmdStatusStop(ModuleKey k, boolean success) {
+		sendCmdStatus("stop", success, k.mName + " " + k.mId);
+	}
+	
+	
+	private void sendCmdStatusConnect(String deviceOut, ModuleKey keyOut, String portNameOut, String deviceIn, ModuleKey keyIn, String portNameIn, boolean success) {
+		String devOut = deviceOut, devIn = deviceIn;
+		if (devOut.equals("local"))
+			devOut = mJid + "/" + mResource;
+		if (devIn.equals("local"))
+			devOut = mJid + "/" + mResource;
+		sendCmdStatus("connect", success, devOut + " " + keyOut.mName + " " + keyOut.mId + " " + portNameOut + " " + devIn + " " + keyIn.mName + " " + keyIn.mId + " " + portNameIn);		
+	}
+	
+	private void sendCmdStatusDisconnect(String device, ModuleKey key, String portName, boolean success) {
+		String dev = device;
+		if (dev.equals("local"))
+			dev = mJid + "/" + mResource;
+		sendCmdStatus("disconnect", success, dev + " " + key.mName + " " + key.mId + " " + portName);
+	}
+	
+	private void sendCmdStatus(String command, boolean success, String statusText) {
+		Message statusMsg = Message.obtain(null, AimProtocol.MSG_XMPP_MSG);
+		Bundle bundle = new Bundle();
+		bundle.putString("jid", XMPPService.ADMIN_JID);
+		String body = "AIM command_result " + command + " ";
+		if (success)
+			body += "ok";
+		else
+			body += "fail";
+		body += " " + statusText;
+		bundle.putString("body", body);
+		statusMsg.setData(bundle);
+		statusMsg.replyTo = mFromXmppMessenger;
+		msgSend(mToXmppMessenger, statusMsg);
+	}
+	
+	
 	int getNumRunningModules() {
 		int num=0;
 		for (Module m : mModules.values())
@@ -1561,23 +1662,6 @@ public class MsgService extends Service {
 		return false;
 	}
 	
-//	protected void msgSend(Message msg) {
-//		if (!mXmppServiceIsBound) {
-//			Log.i(TAG, "Can't send message to service: not bound");
-//			return;
-//		}
-//		try {
-//			if (mMessenger == null)
-//				Log.i(TAG, "mMessenger is null!");
-//			msg.replyTo = mMessenger;
-//			mXmppService.send(msg);
-//			Log.i(TAG, "Sending msg to service.");
-//		} catch (RemoteException e) {
-//			Log.i(TAG, "Failed to send msg to service. " + e);
-//			// There is nothing special we need to do if the service has crashed.
-//		}
-//	}
-
 
 	/**
 	 * Show a notification while this service is running.

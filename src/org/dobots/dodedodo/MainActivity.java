@@ -84,7 +84,9 @@ class ModuleItem {
 	
 	// TODO: Add ID once supported
 	public String toString() {
-		return mModuleName;
+		String[] moduleNameSplit = mModuleName.split("/");
+		return moduleNameSplit[moduleNameSplit.length-1];
+//		return mModuleName;
 	}
 	public boolean equals(Object obj) {
 		if (this == obj)
@@ -287,6 +289,7 @@ public class MainActivity extends Activity {
 
 			Message msg = Message.obtain(null, AimProtocol.MSG_REGISTER);
 			Bundle bundle = new Bundle();
+			bundle.putString("package", getPackageName());
 			bundle.putString("module", MODULE_NAME);
 			bundle.putInt("id", 0);
 			msg.setData(bundle);
