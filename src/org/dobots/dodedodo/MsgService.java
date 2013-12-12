@@ -261,6 +261,9 @@ public class MsgService extends Service {
 				String packageName = msg.getData().getString("package");
 				String moduleName = null;
 				String moduleNameReported = msg.getData().getString("module");
+				if (packageName == null) {
+					Log.e(TAG, "error: msg_register: package=" + packageName + " module=" + moduleNameReported);
+				}
 				
 				if (packageName.equals(getPackageName())) {
 					moduleName = moduleNameReported;
@@ -273,13 +276,13 @@ public class MsgService extends Service {
 						}
 					}
 					if (moduleName == null) {
-						Log.e(TAG, "Uninstalled module tries to register: " + packageName + " " + moduleNameReported);
+						Log.e(TAG, "error: msg_register not installed: package=" + packageName + " module=" + moduleNameReported);
 						break;
 					}
 
 					// Extra check, can be removed?
 					if (!moduleName.equals(moduleNameReported) && !moduleName.endsWith("/" + moduleNameReported)) {
-						Log.e(TAG, "module registers with name: " + moduleNameReported + ", while name of " + packageName + " is: " + moduleName);
+						Log.e(TAG, "error msg_register module mismatch, reported: " + moduleNameReported + ", while name of " + packageName + " is: " + moduleName);
 						break;
 					}
 				}
@@ -350,7 +353,36 @@ public class MsgService extends Service {
 				break;
 			}
 			case AimProtocol.MSG_SET_MESSENGER:{
-				ModuleKey key = new ModuleKey(msg.getData().getString("module"), msg.getData().getInt("id"));
+				String packageName = msg.getData().getString("package");
+				String moduleName = null;
+				String moduleNameReported = msg.getData().getString("module");
+				if (packageName == null) {
+					Log.e(TAG, "error: msg_set_messenger: package=" + packageName + " module=" + moduleNameReported);
+					break;
+				}
+				if (packageName.equals(getPackageName())) {
+					moduleName = moduleNameReported;
+				}
+				else {
+					for (InstalledModule m : mInstalledModules.values()) {
+						if (m.packageName.equals(packageName)) {
+							moduleName = m.name;
+							break;
+						}
+					}
+					if (moduleName == null) {
+						Log.e(TAG, "error: msg_set_messenger not installed: " + packageName + " " + moduleNameReported);
+						break;
+					}
+
+					// Extra check, can be removed?
+					if (!moduleName.equals(moduleNameReported) && !moduleName.endsWith("/" + moduleNameReported)) {
+						Log.e(TAG, "error: msg_set_messenger module mismatch, reported: " + moduleNameReported + ", while name of " + packageName + " is: " + moduleName);
+						break;
+					}
+				}
+				
+				ModuleKey key = new ModuleKey(moduleName, msg.getData().getInt("id"));
 				if (!mModules.containsKey(key))
 					break;
 				Module module = mModules.get(key);
@@ -945,7 +977,7 @@ public class MsgService extends Service {
 		if (deviceIn.equals(mJid + "/" + mResource))
 			deviceIn = "local";
 		
-		Log.i(TAG, "connect() " + deviceOut + "/" + keyOut.toString() + ":" + portNameOut + " " + deviceIn + "/" + keyIn.toString() + ":" + portNameIn);
+		Log.i(TAG, "connect() " + deviceOut + " " + keyOut.toString() + ":" + portNameOut + " to " + deviceIn + " " + keyIn.toString() + ":" + portNameIn);
 		
 		// 3 Options: (in = local, out = local), (in = local, out != local), (in != local, out = local) 
 	
@@ -1001,6 +1033,7 @@ public class MsgService extends Service {
 					msgSend(mOut.messenger, messengerMsg);
 				}
 				else {
+					Log.d(TAG, "pIn.messenger=" + pIn.messenger + " mOut.messenger=" + mOut.messenger);
 					// messenger will be set when module registers
 					//getMessengers();
 				}
