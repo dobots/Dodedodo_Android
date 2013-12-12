@@ -158,8 +158,8 @@ public class XMPPService extends Service {
 				
 				// Port data: parse and send to the local module
 				if (body.startsWith("AIM data ")) {
-					// 0   1    2         3      4  5    6     7
-					// AIM data int/float module id port nDims sizeDim1 sizeDim2 .. <data>
+					// 0   1    2         3      4  5    6        7       8     9
+					// AIM data int/float module id port datatype nArrays nDims sizeDim1 sizeDim2 ...
 					// AIM data string    module id port <data>
 					String[] words = body.split(" ");
 					
@@ -188,13 +188,13 @@ public class XMPPService extends Service {
 						bundle.putString("data", body.substring(header.length()));
 					}
 					else if (words[2].equals("int")) {
-						if (words[6].equals("1") && words[7].equals("1")) {
+						if (words[6].equals("0") && words[7].equals("1") && words[8].equals("1") && words[9].equals("1")) {
 							type = AimProtocol.DATATYPE_INT;
 							int val;
 							try {
-								val = Integer.parseInt(words[8]);
+								val = Integer.parseInt(words[10]);
 							} catch (NumberFormatException e) {
-								Log.w(TAG, "cannot convert " + words[8] + " to int");
+								Log.w(TAG, "cannot convert " + words[10] + " to int");
 								return;
 							}
 							bundle.putInt("data", val);
@@ -214,13 +214,13 @@ public class XMPPService extends Service {
 						}
 					}
 					else if (words[2].equals("float")) {
-						if (words[6].equals("1") && words[7].equals("1")) {
+						if (words[6].equals("0") && words[7].equals("1") && words[8].equals("1") && words[9].equals("1")) {
 							type = AimProtocol.DATATYPE_FLOAT;
 							float val;
 							try {
-								val = Float.parseFloat(words[8]);
+								val = Float.parseFloat(words[10]);
 							} catch (NumberFormatException e) {
-								Log.w(TAG, "cannot convert " + words[8] + " to float");
+								Log.w(TAG, "cannot convert " + words[10] + " to float");
 								return;
 							}
 							bundle.putFloat("data", val);
@@ -453,7 +453,7 @@ public class XMPPService extends Service {
 				switch (msg.getData().getInt("datatype")) {
 				case AimProtocol.DATATYPE_FLOAT:
 					// 1 dimensions of size 1
-					xmppMsg.append(" 1 1 ");
+					xmppMsg.append(" 0 1 1 1 ");
 					xmppMsg.append(msg.getData().getFloat("data"));
 					break;
 				case AimProtocol.DATATYPE_FLOAT_ARRAY:
@@ -465,7 +465,7 @@ public class XMPPService extends Service {
 					break;
 				case AimProtocol.DATATYPE_INT:
 					// 1 dimensions of size 1
-					xmppMsg.append(" 1 1 ");
+					xmppMsg.append(" 0 1 1 1 ");
 					xmppMsg.append(msg.getData().getInt("data"));
 					break;
 				case AimProtocol.DATATYPE_INT_ARRAY:
