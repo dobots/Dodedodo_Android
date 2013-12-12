@@ -321,9 +321,11 @@ public class MainActivity extends Activity {
 //				break;
 			case AimProtocol.MSG_XMPP_LOGGED_IN:
 				mTextNotificationsView.setText("Connected.");
+				mButtonLogin.setText("Logout");
 				break;
 			case AimProtocol.MSG_XMPP_CONNECT_FAIL:
 				mTextNotificationsView.setText("Failed to connect. Maybe you used the wrong username or password?");
+				mButtonLogin.setText("Login");
 				break;
 			case AimProtocol.MSG_NOT_INSTALLED:{
 				Log.i(TAG, "Not installed: " + msg.getData().getString("package"));
