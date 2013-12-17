@@ -197,7 +197,6 @@ public class MsgService extends Service {
 		for (InstalledModule m : mInstalledModules.values())
 			Log.d(TAG, "Installed module: " + m.toString());
 		
-		
 //		loadModuleMap();
 		for (ModuleKey k : mModules.keySet())
 			Log.d(TAG, "key:" + k.toString());
@@ -263,6 +262,7 @@ public class MsgService extends Service {
 				String moduleNameReported = msg.getData().getString("module");
 				if (packageName == null) {
 					Log.e(TAG, "error: msg_register: package=" + packageName + " module=" + moduleNameReported);
+					break;
 				}
 				
 				if (packageName.equals(getPackageName())) {

@@ -96,11 +96,11 @@ public final class AimProtocol {
 		case DATATYPE_FLOAT:
 			res = new String("float"); break;
 		case DATATYPE_FLOAT_ARRAY:
-			res = new String("float"); break;
+			res = new String("floatarray"); break;
 		case DATATYPE_INT:
 			res = new String("int"); break;
 		case DATATYPE_INT_ARRAY:
-			res = new String("int"); break;
+			res = new String("intarray"); break;
 		case DATATYPE_STRING:
 			res = new String("string"); break;
 //		case DATATYPE_IMAGE:

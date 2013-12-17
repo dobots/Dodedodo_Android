@@ -158,9 +158,10 @@ public class XMPPService extends Service {
 				
 				// Port data: parse and send to the local module
 				if (body.startsWith("AIM data ")) {
-					// 0   1    2         3      4  5    6        7       8     9
-					// AIM data int/float module id port datatype nArrays nDims sizeDim1 sizeDim2 ...
-					// AIM data string    module id port <data>
+					// 0   1    2              3      4  5    6        7       8     9
+					// AIM data int/float      module id port number
+					// AIM data int/floatarray module id port datatype nArrays nDims sizeDim1 sizeDim2 ...
+					// AIM data string         module id port data
 					String[] words = body.split(" ");
 					
 					String key = "out." + words[3] + "." + words[4] + "." + words[5];
@@ -188,18 +189,18 @@ public class XMPPService extends Service {
 						bundle.putString("data", body.substring(header.length()));
 					}
 					else if (words[2].equals("int")) {
-						if (words[6].equals("0") && words[7].equals("1") && words[8].equals("1") && words[9].equals("1")) {
-							type = AimProtocol.DATATYPE_INT;
-							int val;
-							try {
-								val = Integer.parseInt(words[10]);
-							} catch (NumberFormatException e) {
-								Log.w(TAG, "cannot convert " + words[10] + " to int");
-								return;
-							}
-							bundle.putInt("data", val);
+						
+						type = AimProtocol.DATATYPE_INT;
+						int val;
+						try {
+							val = Integer.parseInt(words[6]);
+						} catch (NumberFormatException e) {
+							Log.w(TAG, "cannot convert " + words[6] + " to int");
+							return;
 						}
-						else {
+						bundle.putInt("data", val);
+					}
+					else if (words[2].equals("intarray")) {
 							type = AimProtocol.DATATYPE_INT_ARRAY;
 							int[] val = new int[words.length-6];
 							try {
@@ -207,38 +208,36 @@ public class XMPPService extends Service {
 									val[i-6] = Integer.parseInt(words[i]);
 								}
 							} catch (NumberFormatException e) {
-								Log.w(TAG, "cannot convert " + body + " to int");
+								Log.w(TAG, "cannot convert " + body + " to intarray");
 								return;
 							}
 							bundle.putIntArray("data", val);
 						}
-					}
 					else if (words[2].equals("float")) {
-						if (words[6].equals("0") && words[7].equals("1") && words[8].equals("1") && words[9].equals("1")) {
-							type = AimProtocol.DATATYPE_FLOAT;
-							float val;
-							try {
-								val = Float.parseFloat(words[10]);
-							} catch (NumberFormatException e) {
-								Log.w(TAG, "cannot convert " + words[10] + " to float");
-								return;
-							}
-							bundle.putFloat("data", val);
+						type = AimProtocol.DATATYPE_FLOAT;
+						float val;
+						try {
+							val = Float.parseFloat(words[6]);
+						} catch (NumberFormatException e) {
+							Log.w(TAG, "cannot convert " + words[6] + " to float");
+							return;
 						}
-						else {
-							type = AimProtocol.DATATYPE_FLOAT_ARRAY;
-							float[] val = new float[words.length-6];
-							try {
-								for (int i=6; i<words.length; ++i) {
-									val[i-6] = Float.parseFloat(words[i]);
-								} 
-							} catch (NumberFormatException e) {
-								Log.w(TAG, "cannot convert " + body + " to float");
-								return;
-							}
-							bundle.putFloatArray("data", val);
-						}
+						bundle.putFloat("data", val);
 					}
+					else if (words[2].equals("floatarray")) {
+						type = AimProtocol.DATATYPE_FLOAT_ARRAY;
+						float[] val = new float[words.length-6];
+						try {
+							for (int i=6; i<words.length; ++i) {
+								val[i-6] = Float.parseFloat(words[i]);
+							} 
+						} catch (NumberFormatException e) {
+							Log.w(TAG, "cannot convert " + body + " to floatarray");
+							return;
+						}
+						bundle.putFloatArray("data", val);
+					}
+
 					if (type > -1) {
 						bundle.putInt("datatype", type);
 						android.os.Message portMsg = android.os.Message.obtain(null, AimProtocol.MSG_PORT_DATA);
@@ -453,7 +452,7 @@ public class XMPPService extends Service {
 				switch (msg.getData().getInt("datatype")) {
 				case AimProtocol.DATATYPE_FLOAT:
 					// 1 dimensions of size 1
-					xmppMsg.append(" 0 1 1 1 ");
+					xmppMsg.append(" ");
 					xmppMsg.append(msg.getData().getFloat("data"));
 					break;
 				case AimProtocol.DATATYPE_FLOAT_ARRAY:
@@ -465,7 +464,7 @@ public class XMPPService extends Service {
 					break;
 				case AimProtocol.DATATYPE_INT:
 					// 1 dimensions of size 1
-					xmppMsg.append(" 0 1 1 1 ");
+					xmppMsg.append(" ");
 					xmppMsg.append(msg.getData().getInt("data"));
 					break;
 				case AimProtocol.DATATYPE_INT_ARRAY:
