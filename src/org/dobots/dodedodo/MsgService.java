@@ -674,8 +674,13 @@ public class MsgService extends Service {
 					if (m == null) {
 						m = new InstalledModule();
 						m.name = name;
+						sendCmdStatusUninstall(m, false);
 					}
-					sendCmdStatusUninstall(m, false);
+					else {
+						// TODO: stop running instances of this module
+						mInstalledModules.remove(name);
+						sendCmdStatusUninstall(m, true);
+					}
 				}
 				else if (words[1].equals("list")) {
 //						ObjectMapper mapper = new ObjectMapper();						
