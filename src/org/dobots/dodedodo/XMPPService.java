@@ -3,9 +3,11 @@ package org.dobots.dodedodo;
 import java.util.HashMap;
 import java.util.Random;
 
+import org.jivesoftware.smack.AndroidConnectionConfiguration;
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.Roster;
+import org.jivesoftware.smack.SmackAndroid;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.filter.*;
@@ -121,6 +123,8 @@ public class XMPPService extends Service {
 	public void onCreate() {
 		super.onCreate();
 
+		SmackAndroid.init(this);
+		
 		mSharedPref = PreferenceManager.getDefaultSharedPreferences(this);
 		
 //        mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
@@ -581,14 +585,26 @@ public class XMPPService extends Service {
 		
 //		Log.i(TAG, "host=" + host + " user=" + username + " pw=" + password + " resource=" + resource);
 		Log.i(TAG, "host=" + host + " user=" + username + " resource=" + mResource);
-		
-		ConnectionConfiguration connConfig = new ConnectionConfiguration(host, PORT);
+	
+		String serviceName = host;
+		AndroidConnectionConfiguration connConfig;
+		try {
+			connConfig = new AndroidConnectionConfiguration(serviceName);
+		} catch (XMPPException e) {
+			return false;
+		}
 		connConfig.setSASLAuthenticationEnabled(true);
 		connConfig.setReconnectionAllowed(true);
 		connConfig.setCompressionEnabled(true);
-//		connConfig.setRosterLoadedAtLogin(false);
 		connConfig.setRosterLoadedAtLogin(true);
-		//connConfig.setKeystorePath(keystorePath)
+		
+		
+//		ConnectionConfiguration connConfig = new ConnectionConfiguration(host, PORT);
+//		connConfig.setSASLAuthenticationEnabled(true);
+//		connConfig.setReconnectionAllowed(true);
+//		connConfig.setCompressionEnabled(true);
+//		connConfig.setRosterLoadedAtLogin(true);
+//		//connConfig.setKeystorePath(keystorePath)
 		
 		/**
 		If you want compressed XMPP streams you have to add
