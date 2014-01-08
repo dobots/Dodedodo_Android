@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Random;
 
 import org.jivesoftware.smack.AndroidConnectionConfiguration;
-import org.jivesoftware.smack.ConnectionConfiguration;
+//import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.Roster;
 import org.jivesoftware.smack.SmackAndroid;
@@ -15,6 +15,7 @@ import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smackx.filetransfer.FileTransferManager;
+
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -32,7 +33,7 @@ import android.util.Log;
 
 public class XMPPService extends Service {
 	private static final String TAG = "XMPPService";
-	private static final int PORT = 5222;
+	private static final int PORT = 5222; // Not used anymore, since it does a dns srv lookup
 	public static final String ADMIN_JID = "hal9000@dobots.customers.luna.net";
 	
 	private String mBareJid;
@@ -98,13 +99,13 @@ public class XMPPService extends Service {
 	// Ports that send data to local modules
 	HashMap<String, PortOut> mPortsOut = new HashMap<String, PortOut>();
 	
-//	/** For showing and hiding our notification. */
+//	// For showing and hiding our notification.
 //	NotificationManager mNM;
 	
 	Messenger mMsgService = null;
 	
 	
-
+	private SmackAndroid mSmackAndroid;
 	private XMPPConnection mXmppConnection;
 	private PacketListener mXmppMsgListener;
 	private PacketListener mXmppSubListener;
@@ -123,7 +124,7 @@ public class XMPPService extends Service {
 	public void onCreate() {
 		super.onCreate();
 
-		SmackAndroid.init(this);
+		mSmackAndroid = SmackAndroid.init(this);
 		
 		mSharedPref = PreferenceManager.getDefaultSharedPreferences(this);
 		
@@ -317,6 +318,10 @@ public class XMPPService extends Service {
 				}
 			}).start();
 		}
+		
+		if (mSmackAndroid != null)
+			mSmackAndroid.onDestroy();
+		
 		Log.d(TAG, "on destroy");
 	}
 
@@ -389,7 +394,7 @@ public class XMPPService extends Service {
 				else {
 					messenger = new Messenger(new ModuleMsgHandler(key));
 					pIn = new PortIn(deviceIn, messenger, moduleIn, idIn, portIn);
-					mPortsIn.put(key, pIn);
+					mPortsIn.put(key, pIn); // TODO: remove them again..
 				}
 				Log.i(TAG, "get messenger " + key + " to=" + deviceIn + "/" + moduleIn + "[" + idIn + "]:" + portIn);
 //				Log.i(TAG, "get messenger " + key.moduleName + "[" + key.moduleId + "]:" + key.portName + " " + messenger.toString());
@@ -734,29 +739,28 @@ public class XMPPService extends Service {
 //				.append(t.getPriority()).append("]").toString();
 //	}
 
-	/**
-	 * Show a notification while this service is running.
-	 */
-	/*    private void showNotification() {
-        // In this sample, we'll use the same text for the ticker and the expanded notification
-        CharSequence text = getText(R.string.remote_service_started);
-
-        // Set the icon, scrolling text and timestamp
-        Notification notification = new Notification(R.drawable.stat_sample, text,
-                System.currentTimeMillis());
-
-        // The PendingIntent to launch our activity if the user selects this notification
-        PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
-                new Intent(this, Controller.class), 0);
-
-        // Set the info for the views that show in the notification panel.
-        notification.setLatestEventInfo(this, getText(R.string.remote_service_label),
-                       text, contentIntent);
-
-        // Send the notification.
-        // We use a string id because it is a unique number.  We use it later to cancel.
-        mNM.notify(R.string.remote_service_started, notification);
-    }
-	 */
+//	/**
+//	 * Show a notification while this service is running.
+//	 */
+//	private void showNotification() {
+//        // In this sample, we'll use the same text for the ticker and the expanded notification
+//        CharSequence text = "Dodedodo running";
+//
+//        // Set the icon, scrolling text and timestamp
+//        Notification notification = new Notification(R.drawable.stat_sample, text,
+//                System.currentTimeMillis());
+//
+//        // The PendingIntent to launch our activity if the user selects this notification
+//        PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
+//                new Intent(this, Controller.class), 0);
+//
+//        // Set the info for the views that show in the notification panel.
+//        notification.setLatestEventInfo(this, getText(R.string.remote_service_label),
+//                       text, contentIntent);
+//
+//        // Send the notification.
+//        // We use a string id because it is a unique number.  We use it later to cancel.
+//        mNM.notify(R.string.remote_service_started, notification);
+//    }
 
 }

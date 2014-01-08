@@ -20,8 +20,11 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import android.app.ActivityManager;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.app.ActivityManager.RunningServiceInfo;
+import android.app.TaskStackBuilder;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -38,6 +41,7 @@ import android.os.RemoteException;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 
@@ -167,9 +171,11 @@ public class MsgService extends Service {
 	private final Messenger mFromModuleMessenger = new Messenger(new IncomingMsgHandler());
 	
 	
-//	/** For showing and hiding our notification. */
-//	NotificationManager mNM;
-	/** Keeps track of all current registered clients. */
+	// For showing and hiding our notification.
+	NotificationManager mNotificationManager;
+	int mNotificationId;
+	NotificationCompat.Builder mNotificationBuilder;
+
 	
 	private HashMap<String, InstalledModule> mInstalledModules = new HashMap<String, InstalledModule>();
 	//ArrayList<Module> mModules = new ArrayList<Module>();
@@ -189,6 +195,8 @@ public class MsgService extends Service {
 	public void onCreate() {
 		super.onCreate();
 
+		notificationInit();
+		
 		mXmppConnectionStatus = 0;
 		loadInstalledModuleMap();
 
@@ -196,6 +204,8 @@ public class MsgService extends Service {
 			Log.d(TAG, "name: " + n);
 		for (InstalledModule m : mInstalledModules.values())
 			Log.d(TAG, "Installed module: " + m.toString());
+		
+//		mInstalledModules.remove("name/aim_modules/ChatModule");
 		
 //		loadModuleMap();
 		for (ModuleKey k : mModules.keySet())
@@ -238,13 +248,16 @@ public class MsgService extends Service {
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
-//		// Cancel the persistent notification.
+		// Cancel the persistent notification.
+//		mNotificationManager.cancel(mNotificationId);
+		mNotificationManager.cancelAll();
 //        mNM.cancel(R.string.remote_service_started);
 
 //		// Tell the user we stopped.
 //        Toast.makeText(this, R.string.remote_service_stopped, Toast.LENGTH_SHORT).show();
 		doUnbindXmppService();
 		Log.d(TAG, "on destroy");
+		
 		
 		storeModuleMap();
 		storeInstalledModuleMap();
@@ -1700,6 +1713,55 @@ public class MsgService extends Service {
 		return false;
 	}
 	
+    
+    private void notificationInit() {
+		mNotificationId = 1;
+		mNotificationBuilder =
+				new NotificationCompat.Builder(this)
+					.setSmallIcon(R.drawable.ic_launcher)
+					.setContentTitle("Dodedodo")
+					.setContentText("Running");
+		// Creates an explicit intent for an Activity in your app
+		Intent resultIntent = new Intent(this, MainActivity.class);
+
+//		// The stack builder object will contain an artificial back stack for the
+//		// started Activity.
+//		// This ensures that navigating backward from the Activity leads out of
+//		// your application to the Home screen.
+//		TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
+//		// Adds the back stack for the Intent (but not the Intent itself)
+//		stackBuilder.addParentStack(MainActivity.class);
+//		// Adds the Intent that starts the Activity to the top of the stack
+//		stackBuilder.addNextIntent(resultIntent);
+//		PendingIntent resultPendingIntent =
+//		        stackBuilder.getPendingIntent(
+//		            0,
+//		            PendingIntent.FLAG_UPDATE_CURRENT
+//		        );
+//		mBuilder.setContentIntent(resultPendingIntent);
+		
+		// Create PendingIntent
+		PendingIntent notifyIntent =
+				PendingIntent.getActivity(
+						this,
+						0,
+						resultIntent,
+						PendingIntent.FLAG_UPDATE_CURRENT
+		);
+		
+		mNotificationBuilder.setContentIntent(notifyIntent);
+				
+		mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+		// mNotificationId allows you to update the notification later on.
+		mNotificationManager.notify(mNotificationId, mNotificationBuilder.build());
+    }
+    
+    private void notificationUpdate(String text) {
+    	mNotificationBuilder.setContentText(text);
+    	int num = getNumRunningModules();
+    	mNotificationBuilder.setNumber(num);
+    	mNotificationManager.notify(mNotificationId, mNotificationBuilder.build());
+    }
 
 	/**
 	 * Show a notification while this service is running.
