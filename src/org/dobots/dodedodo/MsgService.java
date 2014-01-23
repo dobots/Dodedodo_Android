@@ -248,6 +248,8 @@ public class MsgService extends Service {
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
+		
+		stopForeground(false);
 		// Cancel the persistent notification.
 //		mNotificationManager.cancel(mNotificationId);
 		mNotificationManager.cancelAll();
@@ -257,7 +259,6 @@ public class MsgService extends Service {
 //        Toast.makeText(this, R.string.remote_service_stopped, Toast.LENGTH_SHORT).show();
 		doUnbindXmppService();
 		Log.d(TAG, "on destroy");
-		
 		
 		storeModuleMap();
 		storeInstalledModuleMap();
@@ -352,7 +353,26 @@ public class MsgService extends Service {
 						key = m.key;
 						for (ModulePort p : m.portsIn.values()) {
 							p.messenger = null;
+							
+							if (p.otherModuleDevice != null && !p.otherModuleDevice.equals("local")) {
+								Message unsetMsg = Message.obtain(null, AimProtocol.MSG_UNSET_MESSENGER);
+								Bundle b = new Bundle();
+								b.putString("port", "out." + key.mName + "." + key.mId + "." + p.name);
+								unsetMsg.setData(b);
+								msgSend(mToXmppMessenger, unsetMsg);
+							}
 						}
+						
+						for (ModulePort p : m.portsOut.values()) {
+							if (p.otherModuleDevice != null && !p.otherModuleDevice.equals("local")) {
+								Message unsetMsg = Message.obtain(null, AimProtocol.MSG_UNSET_MESSENGER);
+								Bundle b = new Bundle();
+								b.putString("port", "in." + key.mName + "." + key.mId + "." + p.name);
+								unsetMsg.setData(b);
+								msgSend(mToXmppMessenger, unsetMsg);
+							}
+						}
+						
 						// TODO: check p.otherport ?
 					}
 				}
@@ -449,7 +469,7 @@ public class MsgService extends Service {
 		public void handleMessage(Message msg) {
 			switch (msg.what) {
 			case AimProtocol.MSG_XMPP_LOGGED_IN:{
-				// At this point, out jid is known
+				// At this point, our jid is known
 				SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 				mResource = sharedPref.getString("resource", "");
 				mJid = sharedPref.getString("jid", "");
@@ -1699,7 +1719,7 @@ public class MsgService extends Service {
 		stopService(intent);
 	}
 	
-    private boolean checkServiceRunning(String packageName) {
+	private boolean checkServiceRunning(String packageName) {
 		Log.d(TAG, "Checking if service is running");
 		ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
 		for (RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
@@ -1753,7 +1773,8 @@ public class MsgService extends Service {
 				
 		mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 		// mNotificationId allows you to update the notification later on.
-		mNotificationManager.notify(mNotificationId, mNotificationBuilder.build());
+//		mNotificationManager.notify(mNotificationId, mNotificationBuilder.build());
+		startForeground(mNotificationId, mNotificationBuilder.build());
     }
     
     private void notificationUpdate(String text) {

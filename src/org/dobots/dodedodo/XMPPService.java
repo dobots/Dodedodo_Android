@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Random;
 
 import org.jivesoftware.smack.AndroidConnectionConfiguration;
+import org.jivesoftware.smack.ConnectionListener;
 //import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.Roster;
@@ -55,13 +56,13 @@ public class XMPPService extends Service {
 	
 //	HashMap<PortKey, Messenger> mPortsIn = new HashMap<PortKey, Messenger>();
 	
-	public String makePortInKey(String module, int id, String port) {
-		return new String("in." + module + "." + id + "." + port);
-	}
-	
-	public String makePortOutKey(String module, int id, String port) {
-		return new String("out." + module + "." + id + "." + port);
-	}
+//	public String getPortInKey(String module, int id, String port) {
+//		return new String("in." + module + "." + id + "." + port);
+//	}
+//	
+//	public String getPortOutKey(String module, int id, String port) {
+//		return new String("out." + module + "." + id + "." + port);
+//	}
 	
 	class PortIn {
 		public String mDevice;
@@ -406,6 +407,25 @@ public class XMPPService extends Service {
 				
 				break;
 			}
+			case AimProtocol.MSG_UNSET_MESSENGER: {
+				Log.i(TAG, "unset messenger: " + msg.getData().getString("port"));
+				String portName = msg.getData().getString("port");
+				if (portName == null)
+					break;
+				if (portName.startsWith("in.")) {
+//					PortIn pIn = mPortsIn.get(portName);
+//					if (pIn != null)
+						mPortsIn.remove(portName);
+				}
+				
+				if (portName.startsWith("out.")) {
+//					PortOut pOut = mPortsOut.get(portName);
+//					if (pOut != null)
+						mPortsOut.remove(portName);
+				}
+				
+				break;
+			}
 			case AimProtocol.MSG_XMPP_MSG:
 				Log.i(TAG, "Sending xmpp msg to " + msg.getData().getString("jid") + ": " + msg.getData().getString("body"));
 				if (!xmppSend(msg.getData().getString("jid"), msg.getData().getString("body"))) {
@@ -646,6 +666,37 @@ public class XMPPService extends Service {
 			msgSend(mMsgService, failMsg);
 			return false;
 		}
+		
+		ConnectionListener connectionListener = new ConnectionListener() {
+
+			@Override
+			public void connectionClosed() {
+				Log.i(TAG, "xmpp connectionClosed");
+			}
+
+			@Override
+			public void connectionClosedOnError(Exception e) {
+				Log.i(TAG, "xmpp connectionClosedError: " + e.toString());
+			}
+
+			@Override
+			public void reconnectingIn(int seconds) {
+				Log.i(TAG, "xmpp reconnecting in " + seconds + "s");
+			}
+
+			@Override
+			public void reconnectionSuccessful() {
+				Log.i(TAG, "xmpp reconnected");
+			}
+
+			@Override
+			public void reconnectionFailed(Exception e) {
+				Log.i(TAG, "xmpp reconnection failed");
+			}
+			
+		};
+		
+		mXmppConnection.addConnectionListener(connectionListener);
 
 /*
 		// We need this to get the file transfer work
