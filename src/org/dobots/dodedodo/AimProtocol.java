@@ -24,7 +24,8 @@ public final class AimProtocol {
 	public static final int MSG_STATUS_STOPPED_MODULE = 19;
 	
 	public static final int MSG_PING = 20;
-	public static final int MSG_UNSET_MESSENGER = 21;
+	public static final int MSG_PONG = 21;
+	public static final int MSG_UNSET_MESSENGER = 22;
 	
 	public static final int DATATYPE_FLOAT = 1;
 	public static final int DATATYPE_FLOAT_ARRAY = 2;

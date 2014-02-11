@@ -4,7 +4,11 @@
     <string name="app_name">Dodedodo</string>
     <string name="action_settings">Settings</string>
     <string name="action_info">Info</string>
+    <string name="action_close">Close</string>
+    <string name="dialog_close">Stop all modules and close Dodedodo? (and save the world from evil robots)</string>
     <string name="title_activity_info">InfoActivity</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">Ok</string>
     <string name="hello_world">Hello world!</string>
 
 </resources>

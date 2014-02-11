@@ -311,6 +311,8 @@ public class XMPPService extends Service {
 		super.onDestroy();
 //		// Cancel the persistent notification.
 //        mNM.cancel(R.string.remote_service_started);
+		
+		// TODO: cancel reconnect
 		if (mXmppConnection != null) {
 			new Thread(new Runnable() {
 				@Override
@@ -622,6 +624,8 @@ public class XMPPService extends Service {
 		connConfig.setReconnectionAllowed(true);
 		connConfig.setCompressionEnabled(true);
 		connConfig.setRosterLoadedAtLogin(true);
+//		connConfig.setTruststoreType("BKS");
+		// http://stackoverflow.com/questions/10850300/using-the-android-truststore-for-asmack-in-android-4-ics
 		
 		
 //		ConnectionConfiguration connConfig = new ConnectionConfiguration(host, PORT);

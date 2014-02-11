@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -44,6 +46,22 @@ import android.os.Messenger;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
+class ModulePort implements Serializable {
+	private static final long serialVersionUID = 1L;
+	public String name; // Handy, but double info
+	transient public Messenger messenger = null;
+	public String otherModuleDevice;
+	public String otherModuleName;
+	public int otherModuleId = -1;
+	public String otherPortName;
+	public String toString() {
+		String str = new String(name);
+//		ModuleInstanceKey key = new ModuleInstanceKey(otherModuleName, otherModuleId);
+//		str += "(" + otherModuleDevice + "/" + key.toString() + ":" + otherPortName + ")";
+		str += "(" + otherModuleDevice + "/" + otherModuleName + "[" + otherModuleId + "]" + ":" + otherPortName + ")";
+		return str;
+	}
+}
 
 class ModuleKey implements Serializable {
 	private static final long serialVersionUID = 1L;
@@ -79,28 +97,14 @@ class ModuleKey implements Serializable {
 	}
 }
 
-class ModulePort implements Serializable {
-	private static final long serialVersionUID = 1L;
-	public String name; // Handy, but double info
-	transient public Messenger messenger = null;
-	public String otherModuleDevice;
-	public String otherModuleName;
-	public int otherModuleId = -1;
-	public String otherPortName;
-	public String toString() {
-		String str = new String(name);
-		ModuleKey key = new ModuleKey(otherModuleName, otherModuleId);
-		str += "(" + otherModuleDevice + "/" + key.toString() + ":" + otherPortName + ")";
-		return str;
-	}
-}
-
 class Module implements Serializable {
 	private static final long serialVersionUID = 1L;
 	public ModuleKey key; // Handy, but double info
 	transient public Messenger messenger = null;
 	public HashMap<String, ModulePort> portsIn = new HashMap<String, ModulePort>(); // Key is port name
 	public HashMap<String, ModulePort> portsOut = new HashMap<String, ModulePort>(); // Key is port name
+	transient public long lastHeartBeat;
+	
 	public String toString() {
 		String str = new String(key.toString());
 		str += " messenger=";
@@ -114,9 +118,37 @@ class Module implements Serializable {
 		str += " OUT:";
 		for (ModulePort p : portsOut.values())
 			str += ", " + p.toString();
+		System.currentTimeMillis();
 		return str;
 	}
 }
+
+//class ModuleInstance implements Serializable {
+//	private static final long serialVersionUID = 1L;
+//	public int id; // Handy, but double info
+//	public HashMap<String, ModulePort> portsIn = new HashMap<String, ModulePort>(); // Key is port name
+//	public HashMap<String, ModulePort> portsOut = new HashMap<String, ModulePort>(); // Key is port name
+//	public String toString() {
+//		String str = "[" + id + "]";
+//		str += " IN:";
+//		for (ModulePort p : portsIn.values())
+//			str += ", " + p.toString();
+//		str += " OUT:";
+//		for (ModulePort p : portsOut.values())
+//			str += ", " + p.toString();
+//		return str;
+//	}
+//}
+//
+//class Module implements Serializable {
+//	private static final long serialVersionUID = 1L;
+//	transient public Messenger messenger = null;
+//	public String name; // Handy but double info
+//	public HashMap<Integer, ModuleInstance> instances = new HashMap<Integer, ModuleInstance>();
+//}
+
+
+
 
 class InstalledModulePort implements Serializable {
 	private static final long serialVersionUID = 1L;
@@ -166,9 +198,11 @@ public class MsgService extends Service {
 	private final Messenger mFromXmppMessenger = new Messenger(new XmppMsgHandler());
 	private boolean mXmppServiceIsBound;
 	
-//	Messenger mXmppModuleMessenger = null;
-	
 	private final Messenger mFromModuleMessenger = new Messenger(new IncomingMsgHandler());
+	
+	private static final long heartBeatTimeOut = 5000; // ms
+	Timer mCheckHeartBeatsTimer;
+	CheckHeartBeatsTask mCheckHeartBeatsTask;
 	
 	
 	// For showing and hiding our notification.
@@ -178,8 +212,8 @@ public class MsgService extends Service {
 
 	
 	private HashMap<String, InstalledModule> mInstalledModules = new HashMap<String, InstalledModule>();
-	//ArrayList<Module> mModules = new ArrayList<Module>();
 	private HashMap<ModuleKey, Module> mModules = new HashMap<ModuleKey, Module>();
+//	private HashMap<String, Module> mModules = new HashMap<String, Module>();
 	
 
 
@@ -205,26 +239,43 @@ public class MsgService extends Service {
 		for (InstalledModule m : mInstalledModules.values())
 			Log.d(TAG, "Installed module: " + m.toString());
 		
-//		mInstalledModules.remove("name/aim_modules/ChatModule");
+//		mInstalledModules.remove("AvgBrightnessModule");
+//		mInstalledModules.remove("ChatModule");
 		
 //		loadModuleMap();
-		for (ModuleKey k : mModules.keySet())
-			Log.d(TAG, "key:" + k.toString());
-		for (Module m : mModules.values())
-			Log.d(TAG, "Module: " + m.toString());
+//		for (ModuleInstanceKey k : mModules.keySet())
+//			Log.d(TAG, "key:" + k.toString());
+//		for (ModuleInstance m : mModules.values())
+//			Log.d(TAG, "Module: " + m.toString());
 
 		{
 			// The Xmpp module, which has dynamic ports, created by dodedodo server
+//			Module m = new Module();
+//			ModuleInstance mi = new ModuleInstance();
+//			mi.id = 0;
+//			m.name = "XMPP";
+//			m.instances.put(mi.id, mi);
+//			mModules.put(m.name, m);
+			
 			ModuleKey key = new ModuleKey("XMPP", 0);
 			Module module = new Module();
 			module.key = key;
+			module.lastHeartBeat = System.currentTimeMillis();
 			mModules.put(key, module);
 		}
 		{
 			// The UI as module, has no port, since only the MsgService communicates with it.
+//			Module m = new Module();
+//			ModuleInstance mi = new ModuleInstance();
+//			mi.id = 0;
+//			m.name = "UI";
+//			m.instances.put(mi.id, mi);
+//			mModules.put(m.name, m);
+			
 			ModuleKey key = new ModuleKey("UI", 0);
 			Module module = new Module();
 			module.key = key;
+			module.lastHeartBeat = System.currentTimeMillis();
 			mModules.put(key, module);
 		}
 		
@@ -233,6 +284,10 @@ public class MsgService extends Service {
 //		// Display a notification about us starting.
 //        showNotification();
 		doBindXmppService();
+		
+		mCheckHeartBeatsTimer = new Timer();
+		mCheckHeartBeatsTask = new CheckHeartBeatsTask();
+		mCheckHeartBeatsTimer.schedule(mCheckHeartBeatsTask ,0, 1000);
 	}
 
 	@Override
@@ -257,6 +312,7 @@ public class MsgService extends Service {
 
 //		// Tell the user we stopped.
 //        Toast.makeText(this, R.string.remote_service_stopped, Toast.LENGTH_SHORT).show();
+		mCheckHeartBeatsTimer.cancel();
 		doUnbindXmppService();
 		Log.d(TAG, "on destroy");
 		
@@ -346,6 +402,7 @@ public class MsgService extends Service {
 //				mModules.remove(key);
 				
 				// Only set messenger(s) to null
+				Module xmppModule = mModules.get(new ModuleKey("XMPP", 0));
 				ModuleKey key = null;
 				for (Module m : mModules.values()) {
 					if (m.messenger != null && m.messenger.equals(msg.replyTo)) {
@@ -355,21 +412,27 @@ public class MsgService extends Service {
 							p.messenger = null;
 							
 							if (p.otherModuleDevice != null && !p.otherModuleDevice.equals("local")) {
+								String xmppPort = "out." + key.mName + "." + key.mId + "." + p.name;
 								Message unsetMsg = Message.obtain(null, AimProtocol.MSG_UNSET_MESSENGER);
 								Bundle b = new Bundle();
-								b.putString("port", "out." + key.mName + "." + key.mId + "." + p.name);
+								b.putString("port", xmppPort);
 								unsetMsg.setData(b);
 								msgSend(mToXmppMessenger, unsetMsg);
+								if (xmppModule != null)
+									xmppModule.portsOut.remove(xmppPort);
 							}
 						}
 						
 						for (ModulePort p : m.portsOut.values()) {
 							if (p.otherModuleDevice != null && !p.otherModuleDevice.equals("local")) {
+								String xmppPort = "in." + key.mName + "." + key.mId + "." + p.name;
 								Message unsetMsg = Message.obtain(null, AimProtocol.MSG_UNSET_MESSENGER);
 								Bundle b = new Bundle();
 								b.putString("port", "in." + key.mName + "." + key.mId + "." + p.name);
 								unsetMsg.setData(b);
 								msgSend(mToXmppMessenger, unsetMsg);
+								if (xmppModule != null)
+									xmppModule.portsIn.remove(xmppPort);
 							}
 						}
 						
@@ -450,12 +513,66 @@ public class MsgService extends Service {
 //				break;
 //			}
 			case AimProtocol.MSG_USER_LOGIN:{
-				Log.i(TAG, "login");
+				Log.i(TAG, "msg_user_login");
 				if (mToXmppMessenger != null) {
 					Message msgLogin = Message.obtain(null, AimProtocol.MSG_XMPP_LOGIN);
 					msgSend(mToXmppMessenger, msgLogin);
 				}
 				break;
+			}
+			case AimProtocol.MSG_STOP:{
+				Log.i(TAG, "msg_stop");
+				// TODO: check source of msg
+//				if (msg.getData() == null) {
+				if (!msg.getData().containsKey("module")) {
+					// Stop all modules and close dodedodo
+					stopAllModules();
+					// stopSelf();
+				}
+				
+				break;
+			}
+			case AimProtocol.MSG_PONG:{
+				String packageName = msg.getData().getString("package");
+				String moduleName = null;
+				String moduleNameReported = msg.getData().getString("module");
+				if (packageName == null) {
+					Log.e(TAG, "error: msg_pong: package=" + packageName + " module=" + moduleNameReported);
+					break;
+				}
+				
+				if (packageName.equals(getPackageName())) {
+					moduleName = moduleNameReported;
+				}
+				else {
+					for (InstalledModule m : mInstalledModules.values()) {
+						if (m.packageName.equals(packageName)) {
+							moduleName = m.name;
+							break;
+						}
+					}
+					if (moduleName == null) {
+						Log.e(TAG, "error: msg_pong not installed: package=" + packageName + " module=" + moduleNameReported);
+						break;
+					}
+
+					// Extra check, can be removed?
+					if (!moduleName.equals(moduleNameReported) && !moduleName.endsWith("/" + moduleNameReported)) {
+						Log.e(TAG, "error msg_pong module mismatch, reported: " + moduleNameReported + ", while name of " + packageName + " is: " + moduleName);
+						break;
+					}
+				}
+				
+				ModuleKey key = new ModuleKey(moduleName, msg.getData().getInt("id"));
+
+				if (!mModules.containsKey(key)) {
+					break;
+				}
+				
+				Module module = mModules.get(key);
+				module.lastHeartBeat = System.currentTimeMillis();
+				Log.d(TAG, "pong from " + key.toString());
+				
 			}
 			default:
 				super.handleMessage(msg);
@@ -494,10 +611,9 @@ public class MsgService extends Service {
 //				Log.i(TAG, "set mXmppModuleMessenger: " + msg.replyTo.toString());
 //				mXmppModuleMessenger = msg.replyTo;
 				
-				ModuleKey key = new ModuleKey("XMPP", 0);
-				if (!mModules.containsKey(key))
+				Module module = mModules.get(new ModuleKey("XMPP", 0));
+				if (module == null)
 					break;
-				Module module = mModules.get(key);
 				ModulePort port = module.portsIn.get(msg.getData().getString("port"));
 				if (port == null)
 					Log.w(TAG, "set messenger - port not found: " + msg.getData().getString("port"));
@@ -917,6 +1033,8 @@ public class MsgService extends Service {
 			}
 			mModules.put(key, module);
 		}
+		module.lastHeartBeat = System.currentTimeMillis();
+
 		
 		if (installedMod.type == InstalledModule.MODULE_TYPE_UI) {
 			startActivity(intent);
@@ -1472,6 +1590,24 @@ public class MsgService extends Service {
 		}
 	}
 	
+	private class CheckHeartBeatsTask extends TimerTask {
+		@Override
+		public void run() {
+			List<ModuleKey> toStop = new ArrayList<ModuleKey>();
+			long curTime = System.currentTimeMillis();
+			
+			for (Module m : mModules.values()) {
+				// 1s timeout
+				if ((m.key.mName.endsWith("Module")) && (m.messenger != null) && (curTime - m.lastHeartBeat > heartBeatTimeOut)) {
+					Log.i(TAG, "Module timed out: " + m.key.toString());
+					toStop.add(m.key);
+				}
+			}
+			for (ModuleKey k : toStop)
+				stopModule(k);
+		}
+	}
+	
 	
 
 ////	void getPortStatus(ObjectNode n, ModulePort p) {
@@ -1713,25 +1849,25 @@ public class MsgService extends Service {
 	
 	
 	
-	private void stopService() {
-		Intent intent = new Intent();
-		intent.setClassName("org.dobots.bmptojpgmodule", "org.dobots.bmptojpgmodule.aim.BmpToJpgModuleService");
-		stopService(intent);
-	}
+//	private void stopService() {
+//		Intent intent = new Intent();
+//		intent.setClassName("org.dobots.bmptojpgmodule", "org.dobots.bmptojpgmodule.aim.BmpToJpgModuleService");
+//		stopService(intent);
+//	}
 	
-	private boolean checkServiceRunning(String packageName) {
-		Log.d(TAG, "Checking if service is running");
-		ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-		for (RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-			if (packageName.equals(service.service.getPackageName())) {
-				service.service.getClassName();
-//				service.
-				
-				return true;
-			}
-		}
-		return false;
-	}
+//	private boolean checkServiceRunning(String packageName) {
+//		Log.d(TAG, "Checking if service is running");
+//		ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+//		for (RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+//			if (packageName.equals(service.service.getPackageName())) {
+//				Log.i(TAG, "checkServiceRunning package=" + packageName + " classname=" + service.service.getClassName());
+////				service.
+//				
+//				return true;
+//			}
+//		}
+//		return false;
+//	}
 	
     
     private void notificationInit() {

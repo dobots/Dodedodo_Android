@@ -4,8 +4,13 @@ import java.util.HashMap;
 import java.util.List;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.Dialog;
+//import android.app.DialogFragment;
+//import android.support.v4.app.DialogFragment
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
@@ -270,6 +275,32 @@ public class MainActivity extends Activity {
 			// Show info activity
 			Intent intent = new Intent(this, InfoActivity.class);
 			startActivity(intent);
+			return true;
+		}
+		case R.id.action_close:{
+			// Ask to stop all modules and close dodedodo
+			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+			builder.setMessage(R.string.dialog_close)
+				.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						// Stop modules and close dodedodo
+						Message msg = Message.obtain(null, AimProtocol.MSG_STOP);
+//						Bundle bundle = new Bundle();
+//						bundle.putString("package", getPackageName());
+//						bundle.putString("module", MODULE_NAME);
+//						bundle.putInt("id", 0);
+//						msg.setData(bundle);
+						msgSend(msg);
+						
+						finish();
+					}
+				})
+				.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						// User cancelled the dialog
+					}
+				});
+			builder.create().show();
 			return true;
 		}
 		default:
