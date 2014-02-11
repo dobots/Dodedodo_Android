@@ -1,11 +1,12 @@
 package org.dobots.dodedodo;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.Dialog;
+//import android.app.Dialog;
 //import android.app.DialogFragment;
 //import android.support.v4.app.DialogFragment
 import android.content.ComponentName;
@@ -36,12 +37,12 @@ import android.widget.ListView;
 import android.widget.TextView;
 import org.dobots.dodedodo.R;
 
-class UnInstalledModule {
+class ToInstallModule {
 	public String mModuleName;
 	public String mInstallUrl;
 	public String mPackageName;
 	
-	public UnInstalledModule(String name, String url, String packageName) {
+	public ToInstallModule(String name, String url, String packageName) {
 		mModuleName = name;
 		mInstallUrl = url;
 		mPackageName = packageName;
@@ -123,7 +124,7 @@ public class MainActivity extends Activity {
 	boolean mMsgServiceIsBound;
 	Messenger mToMsgService = null;
 	final Messenger mFromMsgService = new Messenger(new IncomingMsgHandler());
-
+	
 //	final Messenger mPortMessenger = new Messenger(new PortMsgHandler());
 //	Messenger mPortOutMessenger = null;
 	
@@ -137,7 +138,8 @@ public class MainActivity extends Activity {
 //	ArrayList<String> mModuleListStrings;
 //	ArrayAdapter<String> mModuleListAdapter;
 	ArrayAdapter<ModuleItem> mModuleListAdapter;
-	private HashMap<String, UnInstalledModule> mUnInstalledModules = new HashMap<String, UnInstalledModule>();
+	private HashMap<String, ToInstallModule> mToInstallModules = new HashMap<String, ToInstallModule>();
+	String mStatus;
 
 	// onCreate -> onStart -> onResume
 	// onPause -> onResume
@@ -333,7 +335,9 @@ public class MainActivity extends Activity {
 		public void onServiceDisconnected(ComponentName className) {
 			// This is called when the connection with the service has been unexpectedly disconnected: its process crashed.
 			mToMsgService = null;
-			mTextNotificationsView.setText("Disconnected.");
+			mStatus = "Disconnected.";
+			updateNotificationsText();
+			//mTextNotificationsView.setText("Disconnected.");
 
 //	        Toast.makeText(Binding.this, R.string.remote_service_disconnected, Toast.LENGTH_SHORT).show();
 			Log.i(TAG, "Disconnected from MsgService");
@@ -351,11 +355,15 @@ public class MainActivity extends Activity {
 //					mPortOutMessenger = msg.replyTo;
 //				break;
 			case AimProtocol.MSG_XMPP_LOGGED_IN:
-				mTextNotificationsView.setText("Connected.");
+				mStatus = "Connected.";
+				updateNotificationsText();
+				//mTextNotificationsView.setText("Connected.");
 				mButtonLogin.setText("Logout");
 				break;
 			case AimProtocol.MSG_XMPP_CONNECT_FAIL:
-				mTextNotificationsView.setText("Failed to connect. Maybe you used the wrong username or password?");
+				mStatus =  "Failed to connect. Check if you are connected to the internet. Or maybe you used the wrong username or password?";
+				updateNotificationsText();
+				//mTextNotificationsView.setText("Failed to connect. Maybe you used the wrong username or password?");
 				mButtonLogin.setText("Login");
 				break;
 			case AimProtocol.MSG_NOT_INSTALLED:{
@@ -365,7 +373,7 @@ public class MainActivity extends Activity {
 				String url = msg.getData().getString("url");
 				String packageName = msg.getData().getString("package");
 				
-				mUnInstalledModules.put(name, new UnInstalledModule(name, url, packageName));
+				mToInstallModules.put(name, new ToInstallModule(name, url, packageName));
 				updateNotificationsText();
 
 				break;
@@ -428,7 +436,9 @@ public class MainActivity extends Activity {
 		// able to let other applications replace our component.
 		bindService(new Intent(this, MsgService.class), mMsgServiceConnection, Context.BIND_AUTO_CREATE);
 		mMsgServiceIsBound = true;
-		mTextNotificationsView.setText("Connecting..");
+		mStatus = "Connecting..";
+		updateNotificationsText();
+		//mTextNotificationsView.setText("Connecting..");
 	}
 
 	void doUnbindService() {
@@ -445,7 +455,9 @@ public class MainActivity extends Activity {
 			// Detach our existing connection.
 			unbindService(mMsgServiceConnection);
 			mMsgServiceIsBound = false;
-			mTextNotificationsView.setText("Disconnecting..");
+			mStatus = "Disconnecting..";
+			updateNotificationsText();
+			//mTextNotificationsView.setText("Disconnecting..");
 		}
 	}
 
@@ -522,9 +534,14 @@ public class MainActivity extends Activity {
 	public void updateNotificationsText() {
 		// From http://stackoverflow.com/questions/2734270/how-do-i-make-links-in-a-textview-clickable
 		
-		String link = new String(mTextNotificationsView.getText().toString());
-		for (UnInstalledModule m : mUnInstalledModules.values()) {
-			link += "<br>Please install <a href=\"" + m.mInstallUrl + "\">" + m.mModuleName + "</a>";
+		//String link = new String(mTextNotificationsView.getText().toString());
+		String link = new String(mStatus);
+		if (!mToInstallModules.isEmpty()) {
+			link += "<br>Please install:";
+			for (ToInstallModule m : mToInstallModules.values()) {
+				link += "<br>- <a href=\"" + m.mInstallUrl + "\">" + m.mModuleName + "</a>";
+			}
+			//link += "</ul>";
 		}
 		mTextNotificationsView.setText(Html.fromHtml(link));
 //		mCallbackText.setMovementMethod(LinkMovementMethod.getInstance());
