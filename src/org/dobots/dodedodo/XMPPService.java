@@ -393,6 +393,11 @@ public class XMPPService extends Service {
 				PortIn pIn = mPortsIn.get(key);
 				if (pIn != null) {
 					messenger = pIn.mMessenger;
+					// In case the target port changed
+					pIn.mDevice = deviceIn;
+					pIn.mModuleName = moduleIn;
+					pIn.mModuleId = idIn;
+					pIn.mPortName = portIn;
 				}
 				else {
 					messenger = new Messenger(new ModuleMsgHandler(key));
