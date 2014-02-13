@@ -488,7 +488,7 @@ public class MsgService extends Service {
 					Log.i(TAG, "msg_set_messenger: set " + key.toString() + ":" + port.name + " to: " + port.messenger.toString());
 					
 					ModuleKey keyOut = new ModuleKey(port.otherModuleName, port.otherModuleId);
-					connect(port.otherModuleDevice, keyOut, port.otherPortName, "local", key, port.name);
+					connect(port.otherModuleDevice, keyOut, port.otherPortName, "local", key, port.name, false);
 				}
 				else
 					Log.w(TAG, "msg_set_messenger: - port not found: " + msg.getData().getString("port"));
@@ -628,7 +628,7 @@ public class MsgService extends Service {
 					int idIn = msg.getData().getInt("otherID");
 					String portIn = msg.getData().getString("otherPort");
 					ModuleKey keyIn = new ModuleKey(moduleIn, idIn);
-					connect(port.otherModuleDevice, keyOut, port.otherPortName, deviceIn, keyIn, portIn);
+					connect(port.otherModuleDevice, keyOut, port.otherPortName, deviceIn, keyIn, portIn, false);
 //					connect(port.otherModuleDevice, keyOut, port.otherPortName, "local", key, port.name);
 				}
 				
@@ -812,7 +812,7 @@ public class MsgService extends Service {
 //					String moduleNameIn = moduleNameSplit[moduleNameSplit.length-1];
 					String moduleNameIn = words[7];
 					
-					connect(words[2], new ModuleKey(moduleNameOut, idOut), words[5], words[6], new ModuleKey(moduleNameIn, idIn), words[9]);
+					connect(words[2], new ModuleKey(moduleNameOut, idOut), words[5], words[6], new ModuleKey(moduleNameIn, idIn), words[9], true);
 				}
 				else if (words[1].equals("uninstall")) {
 					if (words.length < 3)
@@ -1123,7 +1123,7 @@ public class MsgService extends Service {
 //	}
 	
 	// TODO: get rid of duplicate code
-	private void connect(String deviceOut, ModuleKey keyOut, String portNameOut, String deviceIn, ModuleKey keyIn, String portNameIn) {
+	private void connect(String deviceOut, ModuleKey keyOut, String portNameOut, String deviceIn, ModuleKey keyIn, String portNameIn, boolean newConnection) {
 		if (deviceOut == null || keyOut == null || portNameOut == null || deviceIn == null || keyIn == null || portNameIn == null) {
 			Log.i(TAG, "connect() failed: one or more arguments are null");
 			return;
@@ -1158,7 +1158,7 @@ public class MsgService extends Service {
 			pOut.otherModuleId = keyIn.mId;
 			pOut.otherPortName = portNameIn;
 			
-			// Case: (in = local, out = local)
+			// Case: (out = local, in = local)
 			if (deviceIn.equals("local")) {
 				Module mIn = mModules.get(keyIn);
 				if (mIn == null) {
@@ -1196,7 +1196,7 @@ public class MsgService extends Service {
 				
 			}
 			
-			// Case: (in != local, out = local)
+			// Case: (out = local, in != local)
 			else {
 				if (xmppModule == null) {
 					Log.i(TAG, "xmppModule isn't in mModules");
@@ -1204,7 +1204,7 @@ public class MsgService extends Service {
 				}
 				String xmppPortName = "in." + keyOut.mName + "." + keyOut.mId + "." + portNameOut;
 				ModulePort xmppPort = xmppModule.portsIn.get(xmppPortName);
-				if (xmppPort == null) {
+				if (xmppPort == null || newConnection) {
 					xmppPort = new ModulePort();
 					xmppPort.name = xmppPortName;
 					xmppPort.otherModuleDevice = deviceOut;
@@ -1212,6 +1212,8 @@ public class MsgService extends Service {
 					xmppPort.otherModuleId = keyOut.mId;
 					xmppPort.otherPortName = portNameOut;
 					xmppModule.portsIn.put(xmppPortName, xmppPort);
+					getMessengers(); // TODO: only this new port
+					return;
 				}
 				if (xmppPort.messenger != null && mOut.messenger != null) {
 					pOut.messenger = xmppPort.messenger;
@@ -1233,12 +1235,12 @@ public class MsgService extends Service {
 				}
 				else {
 					// TODO: only this new connection
-					getMessengers();
+					//getMessengers();
 				}
 			}
 		}
 		
-		// Case: (in = local, out != local)
+		// Case: (out != local, in = local)
 		else {
 			if (!deviceIn.equals("local")) {
 				Log.i(TAG, "Can't connect 2 non local modules!");
@@ -1265,7 +1267,7 @@ public class MsgService extends Service {
 			String xmppPortName = "out." + keyIn.mName + "." + keyIn.mId + "." + portNameIn;
 			//String xmppPortName = XMPPService.
 			ModulePort xmppPort = xmppModule.portsOut.get(xmppPortName);
-			if (xmppPort == null) {
+			if (xmppPort == null || newConnection) {
 				xmppPort = new ModulePort();
 				xmppPort.name = xmppPortName;
 				xmppPort.otherModuleDevice = deviceIn;
@@ -1325,6 +1327,7 @@ public class MsgService extends Service {
 				
 				// Case: out != local, in = local
 				if (module.key.mName.equals("XMPP")) { // Can't happen? As XMPP.messenger is always null
+					Log.e(TAG, "this can't happen");
 					otherKey.mName = port.otherModuleName;
 					otherKey.mId = port.otherModuleId;
 					Log.i(TAG, "out port " + port.name + " other module: " + otherKey.toString() + ":" + port.otherPortName);
@@ -1387,7 +1390,7 @@ public class MsgService extends Service {
 					otherKey.mName = port.otherModuleName;
 					otherKey.mId = port.otherModuleId;
 					
-					String xmppPortName = "in." + port.otherModuleName + "." + port.otherModuleId + "." + port.otherPortName;
+					String xmppPortName = "in." + module.key.mName + "." + module.key.mId + "." + port.name;
 					ModulePort xmppPort = xmppModule.portsIn.get(xmppPortName);
 					if (xmppPort == null) {
 						xmppPort = new ModulePort();
@@ -1404,9 +1407,9 @@ public class MsgService extends Service {
 					
 					port.messenger = xmppPort.messenger;
 					if (port.messenger != null) {
-						Log.i(TAG, "set " + module.key.mName + "[" + module.key.mId + "]:" + port.name + ".messenger"
-								+ " to " + otherKey.mName + "[" + otherKey.mId + "]:" + port.otherPortName + ".messenger"
-								+ " " + port.messenger
+						Log.i(TAG, "set " + module.key.toString() + ":" + port.name + ".messenger"
+								+ " to " + xmppModule.toString() + ":" + xmppPortName + ".messenger"
+								+ " " + xmppPort.messenger
 								);
 						Message messengerMsg = Message.obtain(null, AimProtocol.MSG_SET_MESSENGER);
 						Bundle bundle = new Bundle();
