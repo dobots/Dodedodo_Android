@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -43,6 +44,8 @@ public class LoginActivity extends Activity {
 //	 * Keep track of the login task to ensure we can cancel it if requested.
 //	 */
 //	private UserLoginTask mAuthTask = null;
+	
+	private SharedPreferences mSharedPref;
 
 	// Values for email and password at the time of the login attempt.
 	private String mEmail;
@@ -60,11 +63,13 @@ public class LoginActivity extends Activity {
 		super.onCreate(savedInstanceState);
 
 		setContentView(R.layout.activity_login);
+		
+		mSharedPref = PreferenceManager.getDefaultSharedPreferences(this);
 
 		// Set up the login form.
-		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
-		String jid = sharedPref.getString("jid", null);
-		String pw = sharedPref.getString("password", null);
+//		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
+		String jid = mSharedPref.getString("jid", null);
+		String pw = mSharedPref.getString("password", null);
 		String username = null;
 		if (jid != null)
 			username = jid.split("@")[0];
@@ -170,9 +175,9 @@ public class LoginActivity extends Activity {
 			// form field with an error.
 			focusView.requestFocus();
 		} else {
-			SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
+//			SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
 //			SharedPreferences sharedPref = getPreferences(Context.MODE_PRIVATE);
-			SharedPreferences.Editor editor = sharedPref.edit();
+			SharedPreferences.Editor editor = mSharedPref.edit();
 			editor.putString("jid", mEmail + "@dobots.customers.luna.net");
 			editor.putString("password", mPassword);
 //			editor.apply();

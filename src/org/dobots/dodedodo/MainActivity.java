@@ -23,12 +23,14 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.preference.PreferenceManager;
 import android.text.Html;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.WindowManager.LayoutParams;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
@@ -189,30 +191,13 @@ public class MainActivity extends Activity {
 		
 		mTextNotificationsView.setMovementMethod(LinkMovementMethod.getInstance());
 		
-//		mEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-//		    @Override
-//		    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-//		        if (actionId == R.id.sendMsg || actionId == EditorInfo.IME_ACTION_SEND) {
-//		            sendMessage();
-//		            return true;
-//		        }
-//		        return false;
-//		    }
-//		});
-		
-//		mButtonSend.setOnClickListener(new View.OnClickListener() {
-//		    public void onClick(View v) {
-//		        sendMessage();
-//		    }
-//		});
-		
 		mButtonLogin.setOnClickListener(new View.OnClickListener() {
 		    public void onClick(View v) {
 		    	loginScreen();
 		    }
 		});
 		
-		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
+		SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
 		String jid = sharedPref.getString("jid", null);
 		String pw = sharedPref.getString("password", null);
 		if (jid == null || pw == null) {
@@ -234,6 +219,27 @@ public class MainActivity extends Activity {
 	public void onResume() {
 		super.onResume();
 		Log.i(TAG,"onResume");
+		
+		//SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
+		SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
+		String jid = sharedPref.getString("jid", null);
+		String pw = sharedPref.getString("password", null);
+		if (jid == null || pw == null) {
+			mStatus = "Please login";
+			updateNotificationsText();
+		}
+		
+		boolean screen = sharedPref.getBoolean("screen_on", false);
+		if (screen) {
+			getWindow().addFlags(LayoutParams.FLAG_KEEP_SCREEN_ON);
+		}
+		else {
+			getWindow().clearFlags(LayoutParams.FLAG_KEEP_SCREEN_ON);
+		}
+		Log.i(TAG, "screen_on=" + screen);
+		
+		boolean debug = sharedPref.getBoolean("debug_mode", false); 
+		Log.i(TAG, "debug_mode=" + debug);
 	}
 
 	@Override
@@ -469,10 +475,6 @@ public class MainActivity extends Activity {
 		switch (requestCode) {
 			case LOGIN_REPLY:
 				if (resultCode == RESULT_OK) {
-//					SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
-//					String jid = sharedPref.getString("jid", "default@default.com");
-//					String pw = sharedPref.getString("password", "default");
-//					Log.i(TAG, "jid=" + jid + " pw=" + pw);
 					sendLogin();
 				}
 				break;

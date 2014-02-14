@@ -586,27 +586,38 @@ public class XMPPService extends Service {
 	private boolean xmppConnect() {
 		Log.i(TAG, "Connecting..");
 		
-		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
-		String jid = sharedPref.getString("jid", "");
-		String password = sharedPref.getString("password", "");
-		
-		String resource = sharedPref.getString("resource", "");
-//		int resourcePostfix = sharedPref.getInt("resourcePostfix", 0); 
-		
-//		Log.i(TAG, "jid=" + jid + " pw=" + password);
-		
-		if (TextUtils.isEmpty(jid) || TextUtils.isEmpty(password))
-			return false;
+//		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
+//		String jid = sharedPref.getString("jid", "");
+//		String password = sharedPref.getString("password", "");
+//		String resource = sharedPref.getString("resource", "");
+		String jid = mSharedPref.getString("jid", "");
+		String password = mSharedPref.getString("password", "");
+		String resource = mSharedPref.getString("resource", "");
 		
 		if (TextUtils.isEmpty(resource)) {
 			Random rand = new Random(); // Seeded by current time
 			int postfix = rand.nextInt(999) + 1; // number from 1 to 999
 			resource = "android_" + android.os.Build.MODEL.replaceAll(" ", "_") + "_" + postfix; 
-			SharedPreferences.Editor editor = sharedPref.edit();
+			SharedPreferences.Editor editor = mSharedPref.edit();
 			editor.putString("resource", resource);
 			editor.commit();
 		}
-				
+		if (resource.contains(" ")) {
+			resource = resource.replaceAll(" ", "_"); 
+			SharedPreferences.Editor editor = mSharedPref.edit();
+			editor.putString("resource", resource);
+			editor.commit();
+		}
+		if (!resource.startsWith("android_")) {
+			resource = "android_" + resource; 
+			SharedPreferences.Editor editor = mSharedPref.edit();
+			editor.putString("resource", resource);
+			editor.commit();
+		}
+
+		if (TextUtils.isEmpty(jid) || TextUtils.isEmpty(password))
+			return false;
+		
 		String[] split = jid.split("@");
 		if (split.length != 2)
 			return false;

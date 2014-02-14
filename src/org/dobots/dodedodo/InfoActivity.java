@@ -1,6 +1,7 @@
 package org.dobots.dodedodo;
 
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -10,6 +11,8 @@ import android.view.Menu;
 import android.widget.TextView;
 
 public class InfoActivity extends Activity {
+	
+	private SharedPreferences mSharedPref;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -20,6 +23,7 @@ public class InfoActivity extends Activity {
 		TextView resourceText = (TextView) findViewById(R.id.textViewResource);
 		TextView jidText = (TextView) findViewById(R.id.textViewJid);
 		
+		mSharedPref = PreferenceManager.getDefaultSharedPreferences(this);
 		
 		PackageManager manager = this.getPackageManager();
 		try {
@@ -29,11 +33,11 @@ public class InfoActivity extends Activity {
 			versionText.setText("error");
 		}
 		
-		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
-		String resource = sharedPref.getString("resource", "");
+//		SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
+		String resource = mSharedPref.getString("resource", "");
 		resourceText.setText(resource);
 		
-		String jid = sharedPref.getString("jid", "");
+		String jid = mSharedPref.getString("jid", "");
 		jidText.setText(jid);
 		
 	}

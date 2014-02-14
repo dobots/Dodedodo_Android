@@ -43,6 +43,7 @@ import android.os.RemoteException;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
+import android.preference.PreferenceManager;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
@@ -204,6 +205,8 @@ public class MsgService extends Service {
 	Timer mCheckHeartBeatsTimer;
 	CheckHeartBeatsTask mCheckHeartBeatsTask;
 	
+	private SharedPreferences mSharedPref;
+	
 	
 	// For showing and hiding our notification.
 	NotificationManager mNotificationManager;
@@ -229,6 +232,8 @@ public class MsgService extends Service {
 	public void onCreate() {
 		super.onCreate();
 
+		mSharedPref = PreferenceManager.getDefaultSharedPreferences(this);
+		
 		notificationInit();
 		
 		mXmppConnectionStatus = 0;
@@ -587,9 +592,9 @@ public class MsgService extends Service {
 			switch (msg.what) {
 			case AimProtocol.MSG_XMPP_LOGGED_IN:{
 				// At this point, our jid is known
-				SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
-				mResource = sharedPref.getString("resource", "");
-				mJid = sharedPref.getString("jid", "");
+//				SharedPreferences sharedPref = getSharedPreferences("org.dobots.dodedodo.login", Context.MODE_PRIVATE);
+				mResource = mSharedPref.getString("resource", "");
+				mJid = mSharedPref.getString("jid", "");
 				mXmppConnectionStatus = 1;
 				
 				// Send status update to the UI
