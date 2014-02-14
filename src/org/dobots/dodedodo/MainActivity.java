@@ -236,10 +236,6 @@ public class MainActivity extends Activity {
 		else {
 			getWindow().clearFlags(LayoutParams.FLAG_KEEP_SCREEN_ON);
 		}
-		Log.i(TAG, "screen_on=" + screen);
-		
-		boolean debug = sharedPref.getBoolean("debug_mode", false); 
-		Log.i(TAG, "debug_mode=" + debug);
 	}
 
 	@Override
