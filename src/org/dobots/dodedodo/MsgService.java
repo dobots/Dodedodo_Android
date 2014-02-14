@@ -670,7 +670,7 @@ public class MsgService extends Service {
 				if (words.length < 2)
 					break;
 
-				if (words[1].equals("deploy")) {	
+				if (words[1].equals("install")) {	
 					ObjectMapper mapper = new ObjectMapper();
 					JsonNode rootNode;
 					String json = new String(msg.getData().getString("body").substring(11)); // To remove "AIM deploy "
@@ -826,7 +826,11 @@ public class MsgService extends Service {
 						sendCmdStatusUninstall(m, false);
 					}
 					else {
-						// TODO: stop running instances of this module
+						for (ModuleKey k : mModules.keySet()) {
+							if (k.mName.equals(name)) {
+								stopModule(k);
+							}
+						}
 						mInstalledModules.remove(name);
 						sendCmdStatusUninstall(m, true);
 					}
